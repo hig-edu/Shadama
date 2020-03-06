@@ -1,4 +1,4 @@
-function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMTools) {
+function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMTools, documentRoot=document.body, rootURL=window.location.toString(), optEditor) {
     var threeRenderer = frame ? frame.renderer : null;
     var TEXTURE_SIZE = 1024;
     var FIELD_WIDTH = 512;
@@ -120,7 +120,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             float b = texelFetch(u_b, fc, 0).r;
             float a = texelFetch(u_a, fc, 0).r;
             v_color = vec4(r, g, b, a);
-            gl_PointSize = 1.0;
+            gl_PointSize = 5.0;
         }`,
 
         "drawBreed.frag":
@@ -643,7 +643,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         var shader = gl.createShader(type);
 
         if (!source) {
-            var scriptElement = document.getElementById(id);
+            var scriptElement = documentRoot.querySelector("#"+id);
             if(!scriptElement){return;}
             source = scriptElement.text;
         }
@@ -891,6 +891,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
     }
 
     function update(cls, name, fields, env) {
+        console.log("update " + name)
         var stringify = (obj) => {
             var type = Object.prototype.toString.call(obj);
             if (type === "[object Object]") {
@@ -1218,7 +1219,11 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         this.readPixelArray = null;
         this.readPixelCallback = null;
     }
-
+    // to load images, csv files etc.
+    Shadama.prototype.setRootURL = function(url) {
+        rootURL = url
+    }
+  
     Shadama.prototype.evalShadama = function(source) {
         // evaluates ohm compiled shadama code (js code) so that variables are
         // accessible inside the eval
@@ -1238,7 +1243,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         this.clearMedia();
         var newData = [];
         if (!source) {
-            var scriptElement = document.getElementById(id);
+            var scriptElement = documentRoot.querySelector("#" +id);
             if(!scriptElement){return "";}
             source = scriptElement.text;
         }
@@ -1383,7 +1388,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         var height = forBreed ? T : FH;
 
         if (!debugCanvas1) {
-            debugCanvas1 = document.getElementById("debugCanvas1");
+            debugCanvas1 = documentRoot.querySelector("#debugCanvas1");
             if (!debugCanvas1) {
                 debugCanvas1 = document.createElement("canvas");
             }
@@ -1595,8 +1600,8 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             var diffX = e.pageX - e.clientX;
             var x = (e.clientX + diffX - left) / fullScreenScale;
             var y = FH - (e.clientY + diffY - top) / fullScreenScale;
-            //  console.log("y " + e.clientY + " top " + top + " pageY: " + e.pageY);
-            //  console.log("x " + x + " y: " + y);
+            // console.log("y " + e.clientY + " top " + top + " pageY: " + e.pageY);
+            // console.log("x " + x + " y: " + y);
             that.env[symbol] = {x: x,  y: y, time: that.env["time"]};
         }
 
@@ -1639,7 +1644,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
     Shadama.prototype.loadAudio = function(name) {
         var event = new ShadamaEvent();
         var that = this;
-        var location = window.location.toString();
+        var location = rootURL;
 
         if (!audioContext) {
             audioContext = new AudioContext();
@@ -1679,7 +1684,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
 
         var img = document.createElement("img");
         var tmpCanvas = document.createElement("canvas");
-        var location = window.location.toString();
+        var location = rootURL;
 
         if (location.startsWith("http")) {
             if (frame) {
@@ -1719,17 +1724,17 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         return (function() {
             var xobj = new XMLHttpRequest();
             var event = new ShadamaEvent();
-            var location = window.location.toString();
+            var location = rootURL;
             var dir;
             if (name.startsWith("http")) {
                 dir = name;
             } else {
                 if (location.startsWith("http")) {
                     if (frame) {
-                        var dir = frame.dataPath + name;
+                        dir = frame.dataPath + name;
                     } else {
                         var slash = location.lastIndexOf("/");
-                        var dir = location.slice(0, slash) + "/" + name;
+                        dir = location.slice(0, slash) + "/" + name;
                     }
                 } else {
                     dir = "http://tinlizzie.org/~ohshima/shadama2/" + name;
@@ -1824,7 +1829,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
                 });
             }
         } else {
-            var location = window.location.toString();
+            var location = rootURL;
             if (location.startsWith("http")) {
                 if (frame) {
                     var dir = frame.imagePath + name;
@@ -2055,7 +2060,8 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
                 optSelection = optSelection + ".shadama";
             }
         }
-        var dom = document.getElementById("myDropdown");
+        var dom = documentRoot.querySelector("#myDropdown");
+        if(!dom) {return} 
         dom.onchange = function() {that.selectFile(dom);};
         var selectIndex = null;
         if (localStorage) {
@@ -2187,7 +2193,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
     }
 
     Display.prototype.loadProgram = function(name, func) {
-        var location = window.location.toString();
+        var location = rootURL;
         if (!location.startsWith("http")) {return;}
         var slash = location.lastIndexOf("/");
         var dir = location.slice(0, slash) + "/" + "examples";
@@ -2223,7 +2229,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
         return new ImageData(ary, 256, 256);
     }
-
+    
     class StandAloneRenderer {
         setRenderTarget(framebuffer, optType) {
             gl.bindFramebuffer( optType || gl.FRAMEBUFFER, framebuffer );
@@ -2287,6 +2293,35 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             }
             updateOwnVariable(this, xName, x);
             updateOwnVariable(this, yName, y);
+        }
+      
+        fillRectangle(xName, yName, minX, maxX, minY, maxY) {
+          
+            var aryX = new Float32Array(T * T);
+            var aryY = new Float32Array(T * T);
+            var rangeX = maxX - minX;
+            var rangeY = maxY - minY;
+          
+           /* for (var i = 0; i < aryX.length; i++) {
+                // aryX[i] = Math.random() * rangeX + minX;
+            }
+            for (var i = 0; i < aryY.length; i++) {
+                // aryY[i] = Math.random() * rangeY + minY;
+            }*/
+            //for (var i = 0; i < aryX.length; i++) {
+            for (var j = 0; j < rangeY; j++) {
+                for (var i = 0; i < rangeX; i++) {
+                    var ind = rangeX * j + i;
+                    aryX[ind] = i;
+                    aryY[ind] = j;
+                    ind++;
+                }
+            }
+            //}
+            updateOwnVariable(this, xName, aryX);
+            updateOwnVariable(this, yName, aryX);
+
+           
         }
 
         fillCuboid(xName, yName, zName, xDim, yDim, zDim, step) {
@@ -2994,8 +3029,10 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
 
     Shadama.prototype.runner = function(optFunc) {
         var that = this;
+        this.stopped = false
 
         function runBody() {
+            if (that.stopped) return 
             if (domTools) {
                 animationRequested = false;
                 var start = performance.now();
@@ -3008,6 +3045,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
                     var frameTime = (times[times.length-1].start - times[0].start) / (times.length - 1);
                     var stepTime = times.reduce((a, b) => ({step: a.step + b.step})).step / times.length;
                     readout.innerHTML = "" + frameTime.toFixed(1) + " msecs/frame (" + (1000 / frameTime).toFixed(1) + " fps)";
+                    // console.log("[shadama] " + readout.innerHTML)  
                     that.updateEnv();
                 }
                 
@@ -3273,6 +3311,13 @@ Shadama {
                 ["param", null, "yName"],
                 ["param", null, "x"],
                 ["param", null, "y"]], true),
+            "fillRectangle": new SymTable([
+                ["param", null, "xName"],
+                ["param", null, "yName"],
+                ["param", null, "minX"],
+                ["param", null, "maxX"],
+                ["param", null, "minY"],
+                ["param", null, "maxY"]], true),
             "fillCuboid": new SymTable([
                 ["param", null, "xName"],
                 ["param", null, "yName"],
@@ -4757,7 +4802,7 @@ uniform sampler2D u_that_y;
 
                     var displayBuiltIns = ["clear", "playSound", "loadProgram"];
 
-                    var builtIns = ["draw", "render", "setCount", "fillRandom", "fillSpace", "fillCuboid", "fillRandomDir", "fillRandomDir3", "fillImage", "loadVideoFrame", "loadData", "readValues", "start", "stop", "step", "diffuse", "increasePatch", "increaseVoxel"];
+                    var builtIns = ["draw", "render", "setCount", "fillRandom", "fillSpace", "fillRectangle", "fillCuboid", "fillRandomDir", "fillRandomDir3", "fillImage", "loadVideoFrame", "loadData", "readValues", "start", "stop", "step", "diffuse", "increasePatch", "increaseVoxel"];
                     var myTable = table[n.sourceString];
 
                     var actuals = as.static_method_inner(table, null, method, false);
@@ -5416,15 +5461,16 @@ highp float random(float seed) {
 
         if (runTests) {
             setTestParams();
-            document.getElementById("bigTitle").innerHTML = "Shadama Tests";
+            documentRoot.querySelector("#bigTitle").innerHTML = "Shadama Tests";
         }
 
-        readout = document.getElementById("readout");
-        watcherList = document.getElementById("watcherList");
-        envList = document.getElementById("envList");
+        readout = documentRoot.querySelector("#readout");
+        watcherList = documentRoot.querySelector("#watcherList");
+        envList = documentRoot.querySelector("#envList");
 
         if (!withThreeJS) {
-            shadamaCanvas = document.getElementById("shadamaCanvas");
+            
+            shadamaCanvas = documentRoot.querySelector("#shadamaCanvas");
             if (!shadamaCanvas) {
                 shadamaCanvas = document.createElement("canvas");
             }
@@ -5459,10 +5505,31 @@ highp float random(float seed) {
         }
 
         if (degaussdemo) {
-            document.getElementById("bigTitle").innerHTML = "<button>Full Screen</button>";
-            document.getElementById("bigTitle").firstChild.onclick = shadama.goFullScreen;
+            documentRoot.querySelector("#bigTitle").innerHTML = "<button>Full Screen</button>";
+            documentRoot.querySelector("#bigTitle").firstChild.onclick = shadama.goFullScreen;
         }
 
+       if (!editor && optEditor) {
+           function words(str) { let o = {}; str.split(" ").forEach((s) => o[s] = true); return o; }
+            CodeMirror.defineMIME("text/shadama", {
+                name: "clike",
+                keywords: words("program breed patch def static var if else"),
+                atoms: words("true false this self width height image mousedown mousemove mouseup time"),
+            });
+         
+            editor = optEditor;
+            editor.setOption("mode", "text/shadama");
+            editor.setOption("matchBrackets", true);
+            editor.setOption("extraKeys", {
+                    "Cmd-S": function(cm) {shadama.updateCode()},
+                    "Alt-S": function(cm) {shadama.updateCode()},
+                    "Ctrl-S": function(cm) {shadama.updateCode()},
+                })
+    
+            shadama.setEditor(editor, "CodeMirror");
+       }
+      
+      
         if (!editor) {
             function words(str) { let o = {}; str.split(" ").forEach((s) => o[s] = true); return o; }
             CodeMirror.defineMIME("text/shadama", {
@@ -5470,8 +5537,7 @@ highp float random(float seed) {
                 keywords: words("program breed patch def static var if else"),
                 atoms: words("true false this self width height image mousedown mousemove mouseup time"),
             });
-
-            var cm = CodeMirror.fromTextArea(document.getElementById("code"), {
+            var cm = CodeMirror.fromTextArea(documentRoot.querySelector("#code"), {
                 mode: "text/shadama",
                 matchBrackets: true,
                 "extraKeys": {
@@ -5482,27 +5548,30 @@ highp float random(float seed) {
             });
             shadama.setEditor(cm, "CodeMirror");
         }
-
-        shadama.initServerFiles();
-        shadama.initFileList();
-
-        shadama.initEnv(function() {
-            var func = function (source) {
-                shadama.loadShadama(null, source);
-                if (editor) {
-                    editor.doc.setValue(source);
-                }
-                if (withThreeJS) {
-                    if (parent) {
-                        parent.onAfterRender = shadama.makeOnAfterRender();
-                    }
-                }
-                if (!withThreeJS) {
-                    shadama.maybeRunner();
-                }
-            };
-            shadama.env["Display"].loadProgram(defaultProgName, func);
-        });
+        if (documentRoot.querySelector("#myDropdown")) {
+          shadama.initServerFiles();
+          shadama.initFileList();
+        }
+        
+        if (!optEditor)  {
+          shadama.initEnv(function() {
+              var func = function (source) {
+                  shadama.loadShadama(null, source);
+                  if (editor) {
+                      editor.doc.setValue(source);
+                  }
+                  if (withThreeJS) {
+                      if (parent) {
+                          parent.onAfterRender = shadama.makeOnAfterRender();
+                      }
+                  }
+                  if (!withThreeJS) {
+                      shadama.maybeRunner();
+                  }
+              };
+              shadama.env["Display"].loadProgram(defaultProgName, func);
+          });
+        }
     } else {
         if (!renderer.context ||
             renderer.context.constructor != WebGL2RenderingContext) {
@@ -5552,6 +5621,9 @@ highp float random(float seed) {
     return shadama;
 }
 
-//export {
+window.ShadamaFactory = ShadamaFactory
+
+
+// export {
 //   ShadamaFactory
-//}
+// }

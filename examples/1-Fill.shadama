@@ -16,12 +16,12 @@ static setup() {
   Turtle.draw();
 }
 
-//def move() {
-//  this.x = this.x + 1;
-//  this.y = this.y + 1;
-//}
+def move() {
+  this.x = this.x + 1;
+  this.y = this.y + 1;
+}
 
-//static loop() {
-//  Turtle.move();
-//  Turtle.draw();
-//}
+static loop() {
+  Turtle.move();
+  Turtle.draw();
+}
