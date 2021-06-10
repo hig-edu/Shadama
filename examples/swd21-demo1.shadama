@@ -1,7 +1,6 @@
 program "Fill"
 breed Turtle (x, y, r, g, b, a)
 patch Field (r, g, b, a)
-breed Filler (x, y)
   
 def setColor() {
   this.r = this.x / 512;
@@ -54,13 +53,9 @@ static setup() {
   // Turtle.fillCircle(175, 100, 20, Field);
 
   
-  Filler.fillSpace("x", "y", width, height);
-  Filler.clear(Field);
-  Filler.fillCircle(175, 100, 20, Field);
-  Filler.fillCircle(175, 20, 15, Field);
-  
   Turtle.setColor();
   Turtle.draw();
   Field.draw();
   
 }
+

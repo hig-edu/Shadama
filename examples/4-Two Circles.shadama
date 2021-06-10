@@ -27,8 +27,8 @@ static setup() {
   // This is a common way to have a breed whose job is to manipulate the patch
   Filler.fillSpace("x", "y", width, height);
   Filler.clear(Field);
-  Filler.fillCircle(75, 75, 20, Field);
-  Filler.fillCircle(300, 95, 25, Field);
+  Filler.fillCircle(175, 100, 20, Field);
+  Filler.fillCircle(175, 20, 15, Field);
   Display.clear();
   Field.draw();
 }

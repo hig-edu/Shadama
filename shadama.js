@@ -1562,6 +1562,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         var code = editor.getValue();
         this.loadShadama(null, code);
         this.maybeRunner();
+        if (optEditor) return; // opt editor will take care of this 
         if (!this.programName) {
             this.programName = prompt("Enter the program name:", "My Cool Effect!");
             if (!this.programName) {
@@ -2296,32 +2297,24 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
       
         fillRectangle(xName, yName, minX, maxX, minY, maxY) {
-          
+            
             var aryX = new Float32Array(T * T);
-            var aryY = new Float32Array(T * T);
             var rangeX = maxX - minX;
+            var aryY = new Float32Array(T * T);
             var rangeY = maxY - minY;
-          
-           /* for (var i = 0; i < aryX.length; i++) {
-                // aryX[i] = Math.random() * rangeX + minX;
+            var k = 0;
+            var l = 0;
+            for (var j = 0; i < aryY.length; i++) {
+                aryY[k] = i //Math.random() * rangeY + minY;
+                k++
             }
-            for (var i = 0; i < aryY.length; i++) {
-                // aryY[i] = Math.random() * rangeY + minY;
-            }*/
-            //for (var i = 0; i < aryX.length; i++) {
-            for (var j = 0; j < rangeY; j++) {
-                for (var i = 0; i < rangeX; i++) {
-                    var ind = rangeX * j + i;
-                    aryX[ind] = i;
-                    aryY[ind] = j;
-                    ind++;
-                }
+            for (var i = 0; i < aryX.length; i++) {
+                aryX[l] = j //Math.random() * rangeX + minX;
+              l++
             }
-            //}
             updateOwnVariable(this, xName, aryX);
-            updateOwnVariable(this, yName, aryX);
-
-           
+            updateOwnVariable(this, yName, aryY);
+                       
         }
 
         fillCuboid(xName, yName, zName, xDim, yDim, zDim, step) {
