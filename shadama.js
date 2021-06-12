@@ -2475,12 +2475,12 @@ export function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, 
         this.climateFullScreen = flag;
 
         let elems = ["bigTitle", "controlBox", "readout", "fullScreenButton"];
-        let canvasHolder = document.getElementById("canvasHolder");
+        let canvasHolder = documentRoot.querySelector("#canvasHolder");
 
-        shadamaCanvas = document.getElementById("shadamaCanvas");
+        shadamaCanvas = documentRoot.querySelector("#shadamaCanvas");
         if (flag) {
             elems.forEach(n => {
-                document.getElementById(n).style.setProperty("display", "none");
+                documentRoot.querySelector("#"+n).style.setProperty("display", "none");
             });
             canvasHolder.style.setProperty("float", "none");
             canvasHolder.style.setProperty("width", "100%");
@@ -2498,7 +2498,7 @@ export function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, 
             document.body.style.setProperty("margin", "0px");
         } else {
             elems.forEach(n => {
-                document.getElementById(n).style.removeProperty("display");
+                documentRoot.querySelector("#"+n).style.removeProperty("display");
             });
             canvasHolder.style.removeProperty("float");
             canvasHolder.style.removeProperty("width");
@@ -5631,7 +5631,7 @@ highp float random(float seed) {
     climatedemo = /climatedemo/.test(window.location.search);
     useCroquet = /useCroquet/.test(window.location.search);
 
-    let bigTitle = document.getElementById("bigTitle");
+    let bigTitle = documentRoot.querySelector("#bigTitle");
 
     if (domTools) {
         if (degaussdemo) {
@@ -5711,7 +5711,7 @@ highp float random(float seed) {
             bigTitle.firstChild.onclick = shadama.goFullScreen;
         }
 
-        document.getElementById("fullScreenButton").onclick = () => shadama.goFullScreen();
+        documentRoot.querySelector("#fullScreenButton").onclick = () => shadama.goFullScreen();
 
         if (climatedemo) {
             bigTitle.innerHTML = "Full Screen";
