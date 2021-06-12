@@ -1,0 +1,184 @@
+program "2DSystem"
+breed Slide (x, y, dx, dy, r, g, b, a)
+
+breed Plane (x, y, r, g, b, a, s, c, t, r1, r2)
+
+data World("world.png", "image")
+
+def maybeInitColor() {
+  if (this.t < 0) {
+    var r = random((a_index.x + (a_index.y + 1024)) * 1.1);
+    if (r > 0.005) {
+      this.r = 0.1;
+      this.g = 0.1;
+      this.b = this.x / 1536;
+      this.a = 0.4;
+    } else {
+      this.r = 0.1;
+      this.g = 0.1;
+      this.b = 0.1;
+      this.a = 0.7;
+    }
+  }
+}
+
+def noColor() {
+  this.r = 0;
+  this.g = 0;
+  this.b = 0;
+  this.a = 0;
+}
+
+def initT() {
+  this.t = -1;
+}
+
+def maybeInitT() {
+  if (this.t < 0) {
+    this.t = random(a_index.x) * 0.7 + 0.3;
+  }
+}
+
+def maybeChooseRandomStart(time) {
+  if (this.t < 0) {
+    var sx = random((a_index.x + (a_index.y * 1024)) * 1.3 + time) * 1024;
+    var sy = random((a_index.x + (a_index.y * 1024)) * 1.1 + time) * 496 + 138;
+    this.x = sx;
+    this.y = sy;
+  }
+}
+
+def maybeChooseRandomDir(time) {
+  if (this.t < 0) {
+    var r = random((a_index.x + (a_index.y + 1024)) * 0.8 + time) * 0.4 - 0.2;
+    var m = random((a_index.y + (a_index.x + 1024)) * 0.2 + time) * 0.3 + 1;
+    var s = sin(r) * m;
+    var c = cos(r) * m;
+    this.s = s;
+    this.c = c;
+  }
+}
+
+def maybeResetT() {
+  var t = this.t;
+  t = t + (1/1024);
+  if (t > 1) {
+    t = -1;
+  }
+  if (this.y > 634 || this.y < 138) {
+     t = -1;
+  }
+  this.t = t;
+}
+
+def move() {
+  var c = this.c;
+  var x = this.x;
+  var s = this.s;
+  var y = this.y;
+
+  var px = x + c;
+  
+  if (px < 0) {
+    px = 1024 + px;
+  }
+  if (px > 1024) {
+    px = px - 1024;
+  }
+
+  var py = y + s;
+
+  this.x = px;
+  this.y = py;
+}
+
+def updateC(eddyX, eddyY) {
+  var x = this.x;
+  var y = this.y;
+  var c = this.c;
+  var dist2 = (eddyX - x) * (eddyX - x) + (eddyY - y) * (eddyY - y);
+
+  if (dist2 < 100) {
+      c = random(a_index.x * 1.3 + eddyX + eddyY) * 0.3 - 0.1;
+      this.s = random(a_index.x * 1.1 + eddyX) * 0.3 - 0.15;
+      this.r = 1.0;
+      this.a = 0.7;
+  }
+  this.c = c;
+}
+
+def dissolve() {
+  this.x = this.x + this.dx;
+  this.y = this.y + this.dy;
+}
+
+def noAlpha() {
+  if (!(this.r == 0) || !(this.g == 0) || !(this.b == 0)) {
+    this.a = 1;
+  }
+}
+
+static setup() {
+  Plane.setCount(30000);
+  Plane.initT();
+  Plane.maybeChooseRandomStart(time);
+  Plane.maybeChooseRandomDir(time);
+  Plane.maybeInitT();
+  Plane.fillRandom("y", 158, 630);
+  Plane.setPointSize(4);
+  Plane.draw();
+
+  Slide.fillImage("x", "y", "r", "g", "b", "a", World);
+  Slide.fillRandomDir("dx", "dy");
+
+  Display.setClearColor(0, 0, 0, 0);
+
+  var eddyX = 0;
+  var eddyY = 0;
+  var slideDissolve = 0;
+  loop.start();
+}
+
+static loop() {
+  if (mousedown.x > 0 && mousedown.y > 100) {
+    eddyX = mousedown.x;
+    eddyY = mousedown.y;
+    if (abs(time - mousedown.time) < 0.1) {
+      Display.croquetPublish("eddy", eddyX, eddyY);
+    }
+  }
+
+  if (0 < mousedown.y && mousedown.y < 100) {
+     eddyX = 0;
+     eddyY = 0;
+  }
+
+  if (mousedown.y < 50 && mousedown.x > 960) {
+    slideDissolve = 1;
+  }
+
+  Plane.maybeChooseRandomStart(time);
+  Plane.maybeChooseRandomDir(time);
+  Plane.maybeInitColor();
+  Plane.maybeInitT();
+
+  if (slideDissolve == 1) {
+     slideDissolve = 2;
+     Plane.noColor();
+     Slide.noAlpha();
+     Display.croquetPublish("slideDissolve", 0, 0);
+     mousedown.x = 0;
+     mousedown.y = 0;
+  }
+
+  if (slideDissolve == 2) {
+    Slide.dissolve();
+  }
+
+  Plane.move();
+  Plane.updateC(eddyX, eddyY)  
+  Plane.maybeResetT();
+  Display.clear();
+  Slide.draw();
+  Plane.draw();
+}

@@ -1,93 +1,109 @@
-function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMTools, documentRoot=document.body, rootURL=window.location.toString(), optEditor) {
-    var threeRenderer = frame ? frame.renderer : null;
-    var TEXTURE_SIZE = 1024;
-    var FIELD_WIDTH = 512;
-    var FIELD_HEIGHT = 512;
+/* globals CodeMirror THREE Papa ohm
+        setTestParams
+        grammarUnitTests
+        symTableUnitTests
+        translateTests
+*/
+/* SPECTOR */
 
-    var VOXEL_STEP = 8;
-    var VOXEL_WIDTH = 512;
-    var VOXEL_HEIGHT = 512;
-    var VOXEL_DEPTH = 512;
+import {join} from "./croquet.js";
 
-    var VOXEL_TEXTURE_WIDTH = 512; // sqrt(512 * 512 * 512 / 8 / 8 / 8);
-    var VOXEL_TEXTURE_HEIGHT = 512; // sqrt(512 * 512 * 512 / 8 / 8 / 8);
+export function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMTools, documentRoot=document.body, rootURL=window.location.toString(), optEditor) {
+    let threeRenderer = frame ? frame.renderer : null;
+    let TEXTURE_SIZE = 1024;
+    let FIELD_WIDTH = 512;
+    let FIELD_HEIGHT = 512;
 
-    var T = TEXTURE_SIZE;
-    var FW = FIELD_WIDTH;
-    var FH = FIELD_HEIGHT;
+    let VOXEL_STEP = 8;
+    let VOXEL_WIDTH = 512;
+    let VOXEL_HEIGHT = 512;
+    let VOXEL_DEPTH = 512;
 
-    var VS = VOXEL_STEP;
-    var VW = VOXEL_WIDTH;
-    var VH = VOXEL_HEIGHT;
-    var VD = VOXEL_DEPTH;
+    let VOXEL_TEXTURE_WIDTH = 512; // sqrt(512 * 512 * 512 / 8 / 8 / 8);
+    let VOXEL_TEXTURE_HEIGHT = 512; // sqrt(512 * 512 * 512 / 8 / 8 / 8);
 
-    var VTW = VOXEL_TEXTURE_WIDTH;
-    var VTH = VOXEL_TEXTURE_HEIGHT;
+    let T = TEXTURE_SIZE;
+    let FW = FIELD_WIDTH;
+    let FH = FIELD_HEIGHT;
 
-    var N = "_new_";
+    let VS = VOXEL_STEP;
+    let VW = VOXEL_WIDTH;
+    let VH = VOXEL_HEIGHT;
+    let VD = VOXEL_DEPTH;
 
-    var dimension = optDimension || 3; // 2 | 3;
+    let VTW = VOXEL_TEXTURE_WIDTH;
+    let VTH = VOXEL_TEXTURE_HEIGHT;
+
+    let N = "_new_";
+
+    let dimension = optDimension || 3; // 2 | 3;
 
     // need to change things around here so that you can have different Shadma instances with different sizes
 
-    var breedVAO;
-    var patchVAO;
-    var programs = {};  // {name: {prog: shader, vao: VAO, uniLocations: uniformLocs}}
+    let breedVAO;
+    let patchVAO;
+    let programs = {};  // {name: {prog: shader, vao: VAO, uniLocations: uniformLocs}}
 
-    var renderer;
-    var gl;
-    var state;
-    var audioContext;
+    let renderer;
+    let gl;
+    let state;
+    let audioContext;
 
-    var renderRequests = [];
+    let renderRequests = [];
 
-    var targetTexture; // THREE.js texture, not WebGL texture
+    let targetTexture; // THREE.js texture, not WebGL texture
 
-    var debugCanvas1;
-    var debugArray;
-    var debugArray1;
-    var debugArray2;
+    let debugCanvas1;
+    let debugArray;
+    let debugArray1;
+    let debugArray2;
 
-    var debugTextureBreed;
-    var debugTexturePatch;
-    var framebufferDBreed;  // for debugging u8rgba texture
-    var framebufferDPatch;  // for debugging u8rgba texture
+    let debugTextureBreed;
+    let debugTexturePatch;
+    let framebufferDBreed;  // for debugging u8rgba texture
+    let framebufferDPatch;  // for debugging u8rgba texture
 
-    var framebufferBreed;
-    var framebufferPatch;
-    var framebufferDiffuse;
-    var framebufferU8RGBA;  // for three js u8rgba texture
+    let framebufferBreed;
+    let framebufferPatch;
+    let framebufferDiffuse;
+    let framebufferU8RGBA;  // for three js u8rgba texture
 
-    var readFramebufferBreed;
-    var readFramebufferPatch;
-    var writeFramebufferBreed;
-    var writeFramebufferPatch;
+    let readFramebufferBreed;
+    let readFramebufferPatch;
+    let writeFramebufferBreed;
+    let writeFramebufferPatch;
 
-    var editor = null;
-    var editorType = null;
-    var parseErrorWidget = null;
+    let editor = null;
+    let editorType = null;
+    let parseErrorWidget = null;
 
-    var domTools = false;
+    let domTools = false;
 
-    var readout;
-    var watcherList;  // DOM
-    var watcherElements = []; // [DOM]
-    var envList; // DOM
+    let readout;
+    let watcherList;  // DOM
+    let watcherElements = []; // [DOM]
+    let envList; // DOM
 
-    var shadamaCanvas;
-    var fullScreenScale = 1;
+    let shadamaCanvas;
+    let fullScreenScale = 1;
 
-    var keepGoing = true;
-    var animationRequested = false;
+    let keepGoing = true;
+    let animationRequested = false;
 
-    var times = [];
+    let times = [];
 
-    var withThreeJS;
-    var runTests;
-    var showAllEnv;
-    var degaussdemo;
+    let withThreeJS;
+    let runTests;
+    let showAllEnv;
+    let degaussdemo;
+    let climatedemo;
+    let useCroquet;
 
-    var shaders = {
+    let croquetView;
+    let moveVector;
+    let euler;
+
+    let shaders = {
         "drawBreed.vert":
         `#version 300 es
         layout (location = 0) in vec2 a_index;
@@ -95,6 +111,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
 
         uniform vec2 u_resolution;
         uniform vec2 u_half;
+        uniform float u_pointSize;
 
         uniform sampler2D u_x;
         uniform sampler2D u_y;
@@ -120,7 +137,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             float b = texelFetch(u_b, fc, 0).r;
             float a = texelFetch(u_a, fc, 0).r;
             v_color = vec4(r, g, b, a);
-            gl_PointSize = 5.0;
+            gl_PointSize = u_pointSize;
         }`,
 
         "drawBreed.frag":
@@ -505,14 +522,14 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             o_b = v_value.b;
             o_a = v_value.a;
         }`,
-    }
+    };
 
     function initBreedVAO() {
-        var allIndices = new Array(T * T * 2);
-        var divIndices = new Array(T * T * 2);
-        for (var j = 0; j < T; j++) {
-            for (var i = 0; i < T; i++) {
-                var ind = ((j * T) + i) * 2;
+        let allIndices = new Array(T * T * 2);
+        let divIndices = new Array(T * T * 2);
+        for (let j = 0; j < T; j++) {
+            for (let i = 0; i < T; i++) {
+                let ind = ((j * T) + i) * 2;
                 allIndices[ind + 0] = i;
                 allIndices[ind + 1] = j;
                 divIndices[ind + 0] = i / T;
@@ -523,14 +540,14 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         breedVAO = gl.createVertexArray();
         gl.bindVertexArray(breedVAO);
 
-        var aBuffer = gl.createBuffer();
-        var bBuffer = gl.createBuffer();
+        let aBuffer = gl.createBuffer();
+        let bBuffer = gl.createBuffer();
 
-        var attrLocations = new Array(2);
-        attrLocations[0] = 0 // gl.getAttribLocation(prog, 'a_index'); a_index has layout location spec
-        attrLocations[1] = 1 // gl.getAttribLocation(prog, 'b_index'); b_index has layout location spec
+        let attrLocations = new Array(2);
+        attrLocations[0] = 0; // gl.getAttribLocation(prog, 'a_index'); a_index has layout location spec
+        attrLocations[1] = 1; // gl.getAttribLocation(prog, 'b_index'); b_index has layout location spec
 
-        var attrStrides = new Array(2);
+        let attrStrides = new Array(2);
         attrStrides[0] = 2;
         attrStrides[1] = 2;
 
@@ -539,20 +556,20 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
     }
 
     function initPatchVAO() {
-        var w;
-        var h;
-        if (dimension == 2) {
-            var w = FW;
-            var h = FH;
+        let w;
+        let h;
+        if (dimension === 2) {
+            w = FW;
+            h = FH;
         } else {
-            var w = VTW;
-            var h = VTH;
+            w = VTW;
+            h = VTH;
         }
-        var allIndices = new Array(w * h * 2);
-        var divIndices = new Array(w * h * 2);
-        for (var j = 0; j < h; j++) {
-            for (var i = 0; i < w; i++) {
-                var ind = ((j * w) + i) * 2;
+        let allIndices = new Array(w * h * 2);
+        let divIndices = new Array(w * h * 2);
+        for (let j = 0; j < h; j++) {
+            for (let i = 0; i < w; i++) {
+                let ind = ((j * w) + i) * 2;
                 allIndices[ind + 0] = i;
                 allIndices[ind + 1] = j;
                 divIndices[ind + 0] = i / w;
@@ -563,37 +580,35 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         patchVAO = gl.createVertexArray();
         gl.bindVertexArray(patchVAO);
 
-        var aBuffer = gl.createBuffer();
-        var bBuffer = gl.createBuffer();
+        let aBuffer = gl.createBuffer();
+        let bBuffer = gl.createBuffer();
 
-        var attrLocations = new Array(2);
-        attrLocations[0] = 0 // gl.getAttribLocation(prog, 'a_index'); a_index has layout location spec
-        attrLocations[1] = 1 // gl.getAttribLocation(prog, 'b_index'); b_index has layout location spec
+        let attrLocations = [0, 1];
+        attrLocations[0] = 0; // gl.getAttribLocation(prog, 'a_index'); a_index has layout location spec
+        attrLocations[1] = 1; // gl.getAttribLocation(prog, 'b_index'); b_index has layout location spec
 
-        var attrStrides = new Array(2);
-        attrStrides[0] = 2;
-        attrStrides[1] = 2;
+        let attrStrides = [2, 2];
 
         setBufferAttribute([aBuffer, bBuffer], [allIndices, divIndices], attrLocations, attrStrides);
         gl.bindVertexArray(null);
     }
 
     function makePrimitive(name, uniforms, vao) {
-        var vs = createShader(name + ".vert", shaders[name+'.vert']);
-        var fs = createShader(name + ".frag", shaders[name+'.frag']);
+        let vs = createShader(name + ".vert", shaders[name+'.vert']);
+        let fs = createShader(name + ".frag", shaders[name+'.frag']);
 
-        var prog = createProgram(vs, fs);
+        let prog = createProgram(vs, fs);
 
-        var uniLocations = {};
+        let uniLocations = {};
         uniforms.forEach(function (n) {
             uniLocations[n] = gl.getUniformLocation(prog, n);
         });
 
-        return {program: prog, uniLocations: uniLocations, vao: vao};
+        return {program: prog, uniLocations, vao};
     }
 
     function drawBreedProgram() {
-        return makePrimitive("drawBreed", ["u_resolution", "u_half", "u_x", "u_y", "u_r", "u_g", "u_b", "u_a"], breedVAO);
+        return makePrimitive("drawBreed", ["u_resolution", "u_half", "u_pointSize", "u_x", "u_y", "u_r", "u_g", "u_b", "u_a"], breedVAO);
     }
 
     function drawPatchProgram() {
@@ -633,23 +648,23 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
     }
 
     function createShader(id, source) {
-        var type;
+        let type;
         if (id.endsWith(".vert")) {
             type = gl.VERTEX_SHADER;
         } else if (id.endsWith(".frag")) {
             type = gl.FRAGMENT_SHADER;
         }
 
-        var shader = gl.createShader(type);
+        let shader = gl.createShader(type);
 
         if (!source) {
-            var scriptElement = documentRoot.querySelector("#"+id);
-            if(!scriptElement){return;}
+            let scriptElement = documentRoot.querySelector("#"+id);
+            if(!scriptElement){return null;}
             source = scriptElement.text;
         }
         gl.shaderSource(shader, source);
         gl.compileShader(shader);
-        var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+        let success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
         if (success) {
             return shader;
         }
@@ -657,14 +672,15 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         console.log(gl.getShaderInfoLog(shader));
         alert(gl.getShaderInfoLog(shader));
         gl.deleteShader(shader);
+        return null;
     }
 
     function createProgram(vertexShader, fragmentShader) {
-        var program = gl.createProgram();
+        let program = gl.createProgram();
         gl.attachShader(program, vertexShader);
         gl.attachShader(program, fragmentShader);
         gl.linkProgram(program);
-        var success = gl.getProgramParameter(program, gl.LINK_STATUS);
+        let success = gl.getProgramParameter(program, gl.LINK_STATUS);
         if (success) {
             return program;
         }
@@ -672,6 +688,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         console.log(gl.getProgramInfoLog(program));
         //    alert(gl.getProgramInfoLog(program));
         gl.deleteProgram(program);
+        return null;
     }
 
     function createTexture(data, type, width, height) {
@@ -685,7 +702,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             height = T;
         }
 
-        var tex = gl.createTexture();
+        let tex = gl.createTexture();
         state.bindTexture(gl.TEXTURE_2D, tex);
 
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -698,9 +715,9 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
         gl.pixelStorei(gl.UNPACK_SKIP_IMAGES, 0);
 
-        if (type == gl.UNSIGNED_BYTE) {
+        if (type === gl.UNSIGNED_BYTE) {
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, type, data, 0);
-        } else if (type == gl.R32F) {
+        } else if (type === gl.R32F) {
             gl.texImage2D(gl.TEXTURE_2D, 0, type, width, height, 0, gl.RED, gl.FLOAT, data, 0);
         } else {
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, height, 0, gl.RGBA, type, data, 0);
@@ -725,40 +742,43 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             height = T;
         }
 
-        var tex;
-        if (format == gl.FLOAT) {
+        /*
+        let tex;
+        if (format === gl.FLOAT) {
             tex = createTexture(new Float32Array(width * height * 4), format, width, height);
         }
-        if (format == gl.R32F) {
+        if (format === gl.R32F) {
             tex = createTexture(new Float32Array(width * height), format, width, height);
         }
-        if (format == gl.UNSIGNED_BYTE) {
+        if (format === gl.UNSIGNED_BYTE) {
             tex = createTexture(new Uint8Array(width * height * 4), format, width, height);
         }
+        */
 
         var buffer = gl.createFramebuffer();
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, buffer);
+        /*
+        state.bindFramebuffer(gl.FRAMEBUFFER, buffer);
         state.bindTexture(gl.TEXTURE_2D, tex);
 
-        if (format == gl.R32F) {
+        if (format === gl.R32F) {
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, width, height, 0, gl.RED, gl.FLOAT, null);
-        } else if (format == gl.UNSIGNED_BYTE) {
+        } else if (format === gl.UNSIGNED_BYTE) {
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, format, null);
         } else {
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, height, 0, gl.RGBA, format, null);
         }
         state.bindTexture(gl.TEXTURE_2D, null);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        */
 
         if (withThreeJS) {
             var target = new THREE.WebGLRenderTarget(width, height);
             renderer.properties.get(target).__webglFramebuffer = buffer;
-            gl.deleteTexture(tex);
+            //gl.deleteTexture(tex); // has to be revisited
             return target;
-        } else {
-            return buffer;
         }
+        return buffer;
     }
 
     function setTargetBuffer(buffer, tex) {
@@ -774,10 +794,11 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             return;
         }
 
-        var list = [];
+        let list = [];
+
         renderer.setRenderTarget(buffer, gl.DRAW_FRAMEBUFFER);
-        for (var i = 0; i < tex.length; i++) {
-            var val = gl.COLOR_ATTACHMENT0 + i;
+        for (let i = 0; i < tex.length; i++) {
+            let val = gl.COLOR_ATTACHMENT0 + i;
             gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, val, gl.TEXTURE_2D, tex[i], 0);
             list.push(val);
         }
@@ -785,13 +806,17 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
     }
 
     function setBufferAttribute(buffers, data, attrL, attrS) {
-        for (var i in buffers) {
+        for (let i in buffers) {
             gl.bindBuffer(gl.ARRAY_BUFFER, buffers[i]);
             gl.bufferData(gl.ARRAY_BUFFER,
                           new Float32Array(data[i]), gl.STATIC_DRAW);
             gl.enableVertexAttribArray(attrL[i]);
             gl.vertexAttribPointer(attrL[i], attrS[i], gl.FLOAT, false, 0, 0);
         }
+    }
+
+    function webglTexture() {
+        return withThreeJS ? (targetTexture && renderer.properties.get(targetTexture).__webglTexture || null) : null;
     }
 
     function noBlend() {
@@ -822,10 +847,10 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
     }
 
     function textureCopy(obj, src, dst) {
-        var w;
-        var h;
-        var readbuffer;
-        var writebuffer;
+        let w;
+        let h;
+        let readbuffer;
+        let writebuffer;
 
         if (obj.constructor === Breed) {
             w = T;
@@ -850,21 +875,20 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
     }
 
     function updateOwnVariable(obj, name, optData) {
-        var width;
-        var height;
-        var ary;
+        let width;
+        let height;
         if (obj.constructor === Breed) {
-            var width = T;
-            var height = T;
+            width = T;
+            height = T;
         } else if (obj.constructor === Patch) {
-            var width = FW;
-            var height = FH;
+            width = FW;
+            height = FH;
         } else {
-            var width = VTW;
-            var height = VTH;
+            width = VTW;
+            height = VTH;
         }
 
-        var ary = optData || new Float32Array(width * height);
+        let ary = optData || new Float32Array(width * height);
 
         if (obj[name]) {
             gl.deleteTexture(obj[name]);
@@ -890,14 +914,13 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
     }
 
-    function update(cls, name, fields, env) {
-        console.log("update " + name)
-        var stringify = (obj) => {
-            var type = Object.prototype.toString.call(obj);
+    function update(Cls, name, fields, env) {
+        let stringify = (obj) => {
+            let type = Object.prototype.toString.call(obj);
             if (type === "[object Object]") {
-                var pairs = [];
-                for (var k in obj) {
-                    if (!obj.hasOwnProperty(k)) continue;
+                let pairs = [];
+                for (let k in obj) {
+                    if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
                     pairs.push([k, stringify(obj[k])]);
                 }
                 pairs.sort((a, b) => a[0] < b[0] ? -1 : 1);
@@ -910,24 +933,24 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             return JSON.stringify(obj);
         };
 
-        var obj = env[name];
+        let obj = env[name];
         if (!obj) {
-            obj = new cls();
-            for (var i = 0; i < fields.length; i++) {
+            obj = new Cls();
+            for (let i = 0; i < fields.length; i++) {
                 updateOwnVariable(obj, fields[i]);
             }
             env[name] = obj;
             return true;
         }
 
-        var oldOwn = obj.own;
-        var toBeDeleted = [];  // [<str>]
-        var toBeCreated = [];  // [<str>]
-        var newOwn = {};
+        let oldOwn = obj.own;
+        let toBeDeleted = [];  // [<str>]
+        let toBeCreated = [];  // [<str>]
+        let newOwn = {};
 
         // common case: when the existing own and fields are the same
-        for (var i = 0; i < fields.length; i++) {
-            var k = fields[i];
+        for (let i = 0; i < fields.length; i++) {
+            let k = fields[i];
             newOwn[k] = k;
         }
         if (stringify(newOwn) === stringify(oldOwn)) {
@@ -935,13 +958,13 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         // other case: get things into toBeDeleted and toBeCreated, and toBeMoved
-        for (var k in oldOwn) {
+        for (let k in oldOwn) {
             if (fields.indexOf(k) < 0) {
-                toBeDeleted.push(k)
+                toBeDeleted.push(k);
             }
         }
-        for (var i = 0; i < fields.length; i++) {
-            var k = fields[i];
+        for (let i = 0; i < fields.length; i++) {
+            let k = fields[i];
             if (!oldOwn[k]) {
                 toBeCreated.push(k);
             }
@@ -953,239 +976,278 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
     }
 
     function programFromTable(table, vert, frag, name) {
-        return (function () {
-            var debugName = name;
-            if (debugName === "set") {
+        let debugName = name;
+        if (debugName === "move") {
+        }
+        let prog = createProgram(createShader(name + ".vert", vert),
+                                 createShader(name + ".frag", frag));
+        let vao = breedVAO;
+        let uniLocations = {};
+
+        let forBreed = table.forBreed;
+        let viewportW = forBreed ? T : FW;
+        let viewportH = forBreed ? T : FH;
+        let hasPatchInput = table.hasPatchInput;
+
+        table.defaultUniforms.forEach((n) => {
+            uniLocations[n] = gl.getUniformLocation(prog, n);
+        });
+
+        table.uniformTable.keysAndValuesDo((key, entry) => {
+            let uni = table.uniform(entry);
+            uniLocations[uni] = gl.getUniformLocation(prog, uni);
+        });
+
+        table.scalarParamTable.keysAndValuesDo((key, entry) => {
+            let val = entry[2];
+            let uni = "u_scalar_" + val;
+            uniLocations[uni] = gl.getUniformLocation(prog, uni);
+        });
+
+        return function(objects, outs, ins, params) {
+            // objects: {varName: object}
+            // outs: [[varName, fieldName]]
+            // ins: [[varName, fieldName]]
+            // params: {shortName: value}
+            if (debugName === "move") {
             }
-            var prog = createProgram(createShader(name + ".vert", vert),
-                                     createShader(name + ".frag", frag));
-            var vao = breedVAO;
-            var uniLocations = {};
+            let object = objects["this"];
 
+            let targets = outs.map((pair) => objects[pair[0]][N + pair[1]]);
+            if (forBreed) {
+                if (framebufferBreed) {
+                    gl.deleteFramebuffer(framebufferBreed);
+                    framebufferBreed = null;
+                }
+                framebufferBreed = makeFramebuffer(gl.R32F, T, T);
+                setTargetBuffers(framebufferBreed, targets);
+            } else {
+                outs.forEach((pair) => {
+                    textureCopy(objects[pair[0]],
+                                objects[pair[0]][pair[1]],
+                                objects[pair[0]][N + pair[1]]);
+                });
 
-            var forBreed = table.forBreed;
-            var viewportW = forBreed ? T : FW;
-            var viewportH = forBreed ? T : FH;
-            var hasPatchInput = table.hasPatchInput;
-
-            table.defaultUniforms.forEach(function(n) {
-                uniLocations[n] = gl.getUniformLocation(prog, n);
-            });
-
-            table.uniformTable.keysAndValuesDo((key, entry) => {
-                var uni = table.uniform(entry);
-                uniLocations[uni] = gl.getUniformLocation(prog, uni);
-            });
-
-            table.scalarParamTable.keysAndValuesDo((key, entry) => {
-                var name = entry[2];
-                var uni = "u_scalar_" + name;
-                uniLocations[uni] = gl.getUniformLocation(prog, uni);
-            });
-
-            return function(objects, outs, ins, params) {
-                // objects: {varName: object}
-                // outs: [[varName, fieldName]]
-                // ins: [[varName, fieldName]]
-                // params: {shortName: value}
-            if (debugName === "set") {
+                if (framebufferPatch) {
+                    gl.deleteFramebuffer(framebufferPatch);
+                }
+                framebufferPatch = makeFramebuffer(gl.R32F, FW, FH);
+                setTargetBuffers(framebufferPatch, targets);
             }
-                var object = objects["this"];
 
-                var targets = outs.map(function(pair) {return objects[pair[0]][N + pair[1]]});
-                if (forBreed) {
-                    setTargetBuffers(framebufferBreed, targets);
-                } else {
-                    outs.forEach((pair) => {
-                        textureCopy(objects[pair[0]],
-                                    objects[pair[0]][pair[1]],
-                                    objects[pair[0]][N + pair[1]])});
-                    setTargetBuffers(framebufferPatch, targets);
-                }
+            state.useProgram(prog);
+            gl.bindVertexArray(vao);
+            noBlend();
 
-                state.useProgram(prog);
-                gl.bindVertexArray(vao);
-                noBlend();
+            if (!withThreeJS) {
+                gl.viewport(0, 0, viewportW, viewportH);
+            }
 
-                if (!withThreeJS) {
-                    gl.viewport(0, 0, viewportW, viewportH);
-                }
-
+            if (uniLocations["u_resolution"]) {
                 gl.uniform2f(uniLocations["u_resolution"], FW, FH);
-                gl.uniform2f(uniLocations["u_half"], 0.5/viewportW, 0.5/viewportH);
+            }
+            gl.uniform2f(uniLocations["u_half"], 0.5/viewportW, 0.5/viewportH);
 
-                var offset = 0;
-                if (!forBreed || hasPatchInput) {
-                    state.activeTexture(gl.TEXTURE0);
-                    state.bindTexture(gl.TEXTURE_2D, object.x);
-                    gl.uniform1i(uniLocations["u_that_x"], 0);
+            let offset = 0;
+            if (!forBreed || hasPatchInput) {
+                state.activeTexture(gl.TEXTURE0);
+                state.bindTexture(gl.TEXTURE_2D, object.x);
+                gl.uniform1i(uniLocations["u_that_x"], 0);
 
-                    state.activeTexture(gl.TEXTURE1);
-                    state.bindTexture(gl.TEXTURE_2D, object.y);
-                    gl.uniform1i(uniLocations["u_that_y"], 1);
-                    offset = 2;
-                }
+                state.activeTexture(gl.TEXTURE1);
+                state.bindTexture(gl.TEXTURE_2D, object.y);
+                gl.uniform1i(uniLocations["u_that_y"], 1);
+                offset = 2;
+            }
 
-                for (var ind = 0; ind < ins.length; ind++) {
-                    var pair = ins[ind];
-                    var glIndex = gl.TEXTURE0 + ind + offset;
-                    var k = pair[1]
-                    var val = objects[pair[0]][k];
+            let ind = 0;
+            for (ind = 0; ind < ins.length; ind++) {
+                let pair = ins[ind];
+                let glIndex = gl.TEXTURE0 + ind + offset;
+                let k = pair[1];
+                let val = objects[pair[0]][k];
+                state.activeTexture(glIndex);
+                state.bindTexture(gl.TEXTURE_2D, val);
+                gl.uniform1i(uniLocations[["u", pair[0], k].join("_")], ind + offset);
+            }
+
+            for (let k in params) {
+                let val = params[k];
+                if (val.constructor === WebGLTexture) {
+                    let glIndex = gl.TEXTURE0 + ind + offset;
                     state.activeTexture(glIndex);
                     state.bindTexture(gl.TEXTURE_2D, val);
-                    gl.uniform1i(uniLocations["u" + "_" + pair[0] + "_" + k], ind + offset);
+                    gl.uniform1i(uniLocations["u_vector_" + k], ind + offset);
+                    ind++;
+                } else {
+                    gl.uniform1f(uniLocations["u_scalar_" + k], val);
                 }
-
-                for (var k in params) {
-                    var val = params[k];
-                    if (val.constructor == WebGLTexture) {
-                        var glIndex = gl.TEXTURE0 + ind + offset;
-                        state.activeTexture(glIndex);
-                        state.bindTexture(gl.TEXTURE_2D, val);
-                        gl.uniform1i(uniLocations["u_vector_" + k], ind + offset);
-                        ind++;
-                    } else {
-                        gl.uniform1f(uniLocations["u_scalar_" + k], val);
-                    }
-                }
-
-                gl.drawArrays(gl.POINTS, 0, object.count);
-                gl.flush();
-                setTargetBuffers(null, null);
-                for (var i = 0; i < outs.length; i++) {
-                    var pair = outs[i];
-                    var o = objects[pair[0]];
-                    var name = pair[1];
-                    var tmp = o[name];
-                    o[name] = o[N + name];
-                    o[N + name] = tmp;
-                }
-                gl.bindVertexArray(null);
             }
-        })();
+
+            gl.drawArrays(gl.POINTS, 0, object.count);
+            gl.flush();
+            setTargetBuffers(null, null);
+
+            if (forBreed) {
+                gl.deleteFramebuffer(framebufferBreed);
+                framebufferBreed = null;
+            } else {
+                gl.deleteFramebuffer(framebufferPatch);
+                framebufferPatch = null;
+            }
+
+            for (let i = 0; i < outs.length; i++) {
+                let pair = outs[i];
+                let o = objects[pair[0]];
+                let n = pair[1];
+                let tmp = o[n];
+                o[n] = o[N + n];
+                o[N + n] = tmp;
+            }
+            gl.bindVertexArray(null);
+        };
     }
 
     function programFromTable3(table, vert, frag, name) {
-        return (function () {
-            var debugName = name;
+        let debugName = name;
+        if (debugName === "setCoreColor") {
+        }
+        let prog = createProgram(createShader(name + ".vert", vert),
+                                 createShader(name + ".frag", frag));
+        let vao = breedVAO;
+        let uniLocations = {};
+
+        let forBreed = table.forBreed;
+        let viewportW = forBreed ? T : VTW;
+        let viewportH = forBreed ? T : VTH;
+        let hasPatchInput = table.hasPatchInput;
+
+        table.defaultUniforms.forEach((n) => {
+            uniLocations[n] = gl.getUniformLocation(prog, n);
+        });
+
+        table.uniformTable.keysAndValuesDo((key, entry) => {
+            let uni = table.uniform(entry);
+            uniLocations[uni] = gl.getUniformLocation(prog, uni);
+        });
+
+        table.scalarParamTable.keysAndValuesDo((key, entry) => {
+            let val = entry[2];
+            let uni = "u_scalar_" + val;
+            uniLocations[uni] = gl.getUniformLocation(prog, uni);
+        });
+
+        return function(objects, outs, ins, params) {
+            // objects: {varName: object}
+            // outs: [[varName, fieldName]]
+            // ins: [[varName, fieldName]]
+            // params: {shortName: value}
             if (debugName === "setCoreColor") {
             }
-            var prog = createProgram(createShader(name + ".vert", vert),
-                                     createShader(name + ".frag", frag));
-            var vao = breedVAO;
-            var uniLocations = {};
+            let object = objects["this"];
 
-            var forBreed = table.forBreed;
-            var viewportW = forBreed ? T : VTW;
-            var viewportH = forBreed ? T : VTH;
-            var hasPatchInput = table.hasPatchInput;
-
-            table.defaultUniforms.forEach(function(n) {
-                uniLocations[n] = gl.getUniformLocation(prog, n);
-            });
-
-            table.uniformTable.keysAndValuesDo((key, entry) => {
-                var uni = table.uniform(entry);
-                uniLocations[uni] = gl.getUniformLocation(prog, uni);
-            });
-
-            table.scalarParamTable.keysAndValuesDo((key, entry) => {
-                var name = entry[2];
-                var uni = "u_scalar_" + name;
-                uniLocations[uni] = gl.getUniformLocation(prog, uni);
-            });
-
-            return function(objects, outs, ins, params) {
-                // objects: {varName: object}
-                // outs: [[varName, fieldName]]
-                // ins: [[varName, fieldName]]
-                // params: {shortName: value}
-                if (debugName === "setCoreColor") {
+            let targets = outs.map((pair) => objects[pair[0]][N + pair[1]]);
+            if (forBreed) {
+                if (framebufferBreed) {
+                    gl.deleteFramebuffer(framebufferBreed);
+                    framebufferBreed = null;
                 }
-                var object = objects["this"];
+                framebufferBreed = makeFramebuffer(gl.R32F, T, T);
+                setTargetBuffers(framebufferBreed, targets);
+            } else {
+                outs.forEach((pair) => {
+                    textureCopy(objects[pair[0]],
+                                objects[pair[0]][pair[1]],
+                                objects[pair[0]][N + pair[1]]);
+                });
 
-                var targets = outs.map(function(pair) {return objects[pair[0]][N + pair[1]]});
-                if (forBreed) {
-                    setTargetBuffers(framebufferBreed, targets);
-                } else {
-                    outs.forEach((pair) => {
-                        textureCopy(objects[pair[0]],
-                                    objects[pair[0]][pair[1]],
-                                    objects[pair[0]][N + pair[1]])});
-                    setTargetBuffers(framebufferPatch, targets);
+                if (framebufferPatch) {
+                    gl.deleteFramebuffer(framebufferPatch);
                 }
+                framebufferPatch = makeFramebuffer(gl.R32F, FW, FH);
+                setTargetBuffers(framebufferPatch, targets);
+            }
 
-                state.useProgram(prog);
-                gl.bindVertexArray(vao);
-                noBlend();
+            state.useProgram(prog);
+            gl.bindVertexArray(vao);
+            noBlend();
 
-                gl.uniform3f(uniLocations["u_resolution"], VW, VH, VD);
-                gl.uniform3f(uniLocations["v_resolution"], VW/VS, VH/VS, VD/VS);
-                gl.uniform1f(uniLocations["v_step"], VS);
-                gl.uniform2f(uniLocations["u_half"], 0.5/viewportW, 0.5/viewportH);
+            gl.uniform3f(uniLocations["u_resolution"], VW, VH, VD);
+            gl.uniform3f(uniLocations["v_resolution"], VW/VS, VH/VS, VD/VS);
+            gl.uniform1f(uniLocations["v_step"], VS);
+            gl.uniform2f(uniLocations["u_half"], 0.5/viewportW, 0.5/viewportH);
 
-                var offset = 0;
-                if (!forBreed || hasPatchInput) {
-                    state.activeTexture(gl.TEXTURE0);
-                    state.bindTexture(gl.TEXTURE_2D, object.x);
-                    gl.uniform1i(uniLocations["u_that_x"], 0);
+            let offset = 0;
+            if (!forBreed || hasPatchInput) {
+                state.activeTexture(gl.TEXTURE0);
+                state.bindTexture(gl.TEXTURE_2D, object.x);
+                gl.uniform1i(uniLocations["u_that_x"], 0);
 
-                    state.activeTexture(gl.TEXTURE1);
-                    state.bindTexture(gl.TEXTURE_2D, object.y);
-                    gl.uniform1i(uniLocations["u_that_y"], 1);
+                state.activeTexture(gl.TEXTURE1);
+                state.bindTexture(gl.TEXTURE_2D, object.y);
+                gl.uniform1i(uniLocations["u_that_y"], 1);
 
-                    state.activeTexture(gl.TEXTURE2);
-                    state.bindTexture(gl.TEXTURE_2D, object.z);
-                    gl.uniform1i(uniLocations["u_that_z"], 2);
+                state.activeTexture(gl.TEXTURE2);
+                state.bindTexture(gl.TEXTURE_2D, object.z);
+                gl.uniform1i(uniLocations["u_that_z"], 2);
 
-                    offset = 3;
-                }
+                offset = 3;
+            }
 
-                for (var ind = 0; ind < ins.length; ind++) {
-                    var pair = ins[ind];
-                    var glIndex = gl.TEXTURE0 + ind + offset;
-                    var k = pair[1]
-                    var val = objects[pair[0]][k];
+            let ind;
+            for (ind = 0; ind < ins.length; ind++) {
+                let pair = ins[ind];
+                let glIndex = gl.TEXTURE0 + ind + offset;
+                let k = pair[1];
+                let val = objects[pair[0]][k];
+                state.activeTexture(glIndex);
+                state.bindTexture(gl.TEXTURE_2D, val);
+                gl.uniform1i(uniLocations[["u", pair[0], k].join("_")], ind + offset);
+            }
+
+            for (let k in params) {
+                let val = params[k];
+                if (val.constructor === WebGLTexture) {
+                    let glIndex = gl.TEXTURE0 + ind + offset;
                     state.activeTexture(glIndex);
                     state.bindTexture(gl.TEXTURE_2D, val);
-                    gl.uniform1i(uniLocations["u" + "_" + pair[0] + "_" + k], ind + offset);
+                    gl.uniform1i(uniLocations["u_vector_" + k], ind + offset);
+                    ind++;
+                } else {
+                    gl.uniform1f(uniLocations["u_scalar_" + k], val);
                 }
-
-                for (var k in params) {
-                    var val = params[k];
-                    if (val.constructor == WebGLTexture) {
-                        var glIndex = gl.TEXTURE0 + ind + offset;
-                        state.activeTexture(glIndex);
-                        state.bindTexture(gl.TEXTURE_2D, val);
-                        gl.uniform1i(uniLocations["u_vector_" + k], ind + offset);
-                        ind++;
-                    } else {
-                        gl.uniform1f(uniLocations["u_scalar_" + k], val);
-                    }
-                }
-
-                gl.drawArrays(gl.POINTS, 0, object.count);
-                gl.flush();
-                setTargetBuffers(null, null);
-                for (var i = 0; i < outs.length; i++) {
-                    var pair = outs[i];
-                    var o = objects[pair[0]];
-                    var name = pair[1];
-                    var tmp = o[name];
-                    o[name] = o[N + name];
-                    o[N + name] = tmp;
-                }
-                gl.bindVertexArray(null);
             }
-        })();
+
+            gl.drawArrays(gl.POINTS, 0, object.count);
+            gl.flush();
+            setTargetBuffers(null, null);
+
+            if (forBreed) {
+                framebufferBreed.dispose();
+                framebufferBreed = null;
+            } else {
+                framebufferPatch.dispose();
+                framebufferPatch = null;
+            }
+
+            for (let i = 0; i < outs.length; i++) {
+                let pair = outs[i];
+                let o = objects[pair[0]];
+                let n = pair[1];
+                let tmp = o[n];
+                o[n] = o[N + n];
+                o[N + n] = tmp;
+            }
+            gl.bindVertexArray(null);
+        };
     }
 
     function initFramebuffers() {
         debugTextureBreed = createTexture(new Float32Array(T*T*4), gl.FLOAT, T, T);
         debugTexturePatch = createTexture(new Float32Array(FW*FH*4), gl.FLOAT, FW, FH);
 
-        framebufferBreed = makeFramebuffer(gl.R32F, T, T);
-        framebufferPatch = makeFramebuffer(gl.R32F, FW, FH);
+        //framebufferBreed = makeFramebuffer(gl.R32F, T, T);
+        //framebufferPatch = makeFramebuffer(gl.R32F, FW, FH);
 
         framebufferU8RGBA = makeFramebuffer(gl.UNSIGNED_BYTE, FW, FH);
 
@@ -1223,51 +1285,53 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
     Shadama.prototype.setRootURL = function(url) {
         rootURL = url
     }
-  
+
     Shadama.prototype.evalShadama = function(source) {
         // evaluates ohm compiled shadama code (js code) so that variables are
         // accessible inside the eval
-        var env = this.env;
-        var scripts = this.scripts;
-        return eval(source);
-    }
+
+        let f = new Function("env", "scripts", 'return ' + source);
+        let val = f(this.env, this.scripts);
+        return val;
+    };
 
     Shadama.prototype.loadShadama = function(id, source) {
-        var newSetupCode;
-        var oldProgramName = this.programName;
-        var schemaChange = false;
+        let newSetupCode;
+        let oldProgramName = this.programName;
+        let schemaChange = false;
         this.statics = {};
         this.staticsList = [];
         this.scripts = {};
         this.triggers = {};
         this.clearMedia();
-        var newData = [];
+        let newData = [];
         if (!source) {
-            var scriptElement = documentRoot.querySelector("#" +id);
+            let scriptElement = documentRoot.querySelector("#" +id);
             if(!scriptElement){return "";}
             source = scriptElement.text;
         }
         this.cleanUpEditorState();
+        let result;
         try {
-            var result = translate(source, "TopLevel", this.reportError.bind(this));
+            result = translate(source, "TopLevel", this.reportError.bind(this));
         } catch (e) {
             this.reportError(e);
-            return;
+            return null;
         }
         this.compilation = result;
 
         if (!result) {return "";}
-        if (oldProgramName != result["_programName"]) {
+        if (oldProgramName !== result["_programName"]) {
             this.resetSystem();
         }
         this.programName = result["_programName"];
         delete result["_programName"];
 
-        for (var k in result) {
-            var entry = result[k];
-            if (entry[0] == "static") { // static function case
-                var src = entry[2];
-                var js = entry[1];
+        for (let k in result) {
+            let entry = result[k];
+            if (entry[0] === "static") { // static function case
+                let src = entry[2];
+                let js = entry[1];
                 this.statics[k] = this.evalShadama(js);
                 this.staticsList.push(k);
                 this.env[k] = new ShadamaFunction(k, this);
@@ -1275,14 +1339,14 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
                     newSetupCode = src;
                 }
             } else {
-                var js = entry[3];
+                let js = entry[3];
                 if (js[0] === "updateBreed") {
                     schemaChange = update(Breed, js[1], js[2], this.env) || schemaChange;
                 } else if (js[0] === "updatePatch") {
                     schemaChange = update(Patch, js[1], js[2], this.env) || schemaChange;
                 } else if (js[0] === "updateScript") {
-                    var table = entry[0];
-                    var func = dimension == 2 ? programFromTable : programFromTable3;
+                    let table = entry[0];
+                    let func = dimension === 2 ? programFromTable : programFromTable3;
                     this.scripts[js[1]] = [ func(table, entry[1], entry[2], js[1]),
                                       table.insAndParamsAndOuts()];
                 } else if (js[0] === "event") {
@@ -1291,19 +1355,19 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
                     this.triggers[k] = new ShadamaTrigger(js[1], js[2]);
                 } else if (js[0] === "data") {
                     this.env[js[1]] = new ShadamaEvent();
-                    if (js[3] == "image") {
+                    if (js[3] === "image") {
                         this.env[js[1]] = this.loadImage(js[2]);
-                    } else if (js[3] == "audio") {
+                    } else if (js[3] === "audio") {
                         this.env[js[1]] = this.loadAudio(js[2]);
-                    } else if (js[3] == "csv") {
+                    } else if (js[3] === "csv") {
                         this.env[js[1]] = this.loadCSV(js[2]);
-                    } else if (js[3] == "video" || js[3] == "camera") {
-                        var evt = this.loadVideo(js[2], js[3] == "camera");
+                    } else if (js[3] === "video" || js[3] === "camera") {
+                        var evt = this.loadVideo(js[2], js[3] === "camera");
                         this.env[js[1]] = evt;
                         this.media[js[1]] = evt;
                     }
 
-                    if (newData.length == 0) {
+                    if (newData.length === 0) {
                         newData = js[1];
                     } else {
                         newData = ["and", js[1], newData];
@@ -1324,68 +1388,90 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
 
         if (schemaChange) {
             if (newData.length === 0) {
-                var success = this.callSetup();
-                if (!success) {return };
+                let success = this.callSetup();
+                if (!success) {return null;}
             } else {
                 this.loadTime = window.performance.now() / 1000.0;
                 this.env["time"] = 0.0;
-                var trigger = new ShadamaTrigger(newData, ["step", "setup"]);
+                let trigger = new ShadamaTrigger(newData, ["step", "setup"]);
                 this.triggers["_trigger" + trigger.trigger.toString()] = trigger;
             }
         }
 //        this.runLoop();
         return source;
-    }
+    };
 
     Shadama.prototype.setTarget = function(aTexture) {
         targetTexture = aTexture;
-    }
-
-    function webglTexture() {
-        return withThreeJS ? (targetTexture && renderer.properties.get(targetTexture).__webglTexture || null) : null;
-    }
+    };
 
     Shadama.prototype.setReadPixelCallback = function(func) {
         this.readPixelCallback = func;
-    }
+    };
 
     Shadama.prototype.makeOnAfterRender = function() {
-        return function(renderer, scene, camera, geometry, material, group) {
-            var mesh = this;
-            var pMatrix = camera.projectionMatrix;
-            var mvMatrix = mesh.modelViewMatrix;
+        return function(_renderer, scene, camera, _geometry, _material, _group) {
+            let mesh = this;
+            let pMatrix = camera.projectionMatrix;
+            let mvMatrix = mesh.modelViewMatrix;
            // mvpMatrix.multiply(modelViewMatrix);
 
-            for (var i = 0; i < renderRequests.length; i++) {
-                var item = renderRequests[i];
-                if (item.constructor == Breed || item.constructor == Patch) {
+            for (let i = 0; i < renderRequests.length; i++) {
+                let item = renderRequests[i];
+                if (item.constructor === Breed || item.constructor === Patch) {
                     item.realRender(mvMatrix, pMatrix);
                 }
             }
             renderRequests.length = 0;
+        };
+    };
+
+    Shadama.prototype.handleEvents = function(scene, camera) {
+        if (!this.keys) {return;}
+        let keys = this.keys;
+        if (keys["a"]) {
+            euler.setFromQuaternion(camera.quaternion);
+	    euler.y += 0.02;
+            camera.quaternion.setFromEuler(euler);
         }
-    }
+        if (keys["d"]) {
+            euler.setFromQuaternion(camera.quaternion);
+	    euler.y += -0.02;
+            camera.quaternion.setFromEuler(euler);
+        }
+        if (keys["w"]) {
+            moveVector.setFromMatrixColumn(camera.matrix, 0);
+	    moveVector.crossVectors(camera.up, moveVector);
+	    camera.position.addScaledVector(moveVector, 1);
+        }
+
+        if (keys["s"]) {
+            moveVector.setFromMatrixColumn(camera.matrix, 0);
+	    moveVector.crossVectors(camera.up, moveVector);
+	    camera.position.addScaledVector(moveVector, -0.8);
+        }
+    };
 
     Shadama.prototype.readPixels = function() {
-        var width = FW;
-        var height = FH;
+        let width = FW;
+        let height = FH;
 
         if (!this.readPixelArray) {
             this.readPixelArray = new Uint8Array(width * height * 4);
         }
         gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, this.readPixelArray);
 
-        var clamped = new Uint8ClampedArray(this.readPixelArray);
-        var img = new ImageData(clamped, width, height);
+        let clamped = new Uint8ClampedArray(this.readPixelArray);
+        let img = new ImageData(clamped, width, height);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         return img;
-    }
+    };
 
     Shadama.prototype.debugDisplay = function(objName, name) {
-        var object = this.env[objName];
-        var forBreed = object.constructor == Breed;
-        var width = forBreed ? T : FW;
-        var height = forBreed ? T : FH;
+        let object = this.env[objName];
+        let forBreed = object.constructor === Breed;
+        let width = forBreed ? T : FW;
+        let height = forBreed ? T : FH;
 
         if (!debugCanvas1) {
             debugCanvas1 = documentRoot.querySelector("#debugCanvas1");
@@ -1399,7 +1485,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             }
         }
 
-        var prog = programs[forBreed ? "debugBreed" : "debugPatch"];
+        let prog = programs[forBreed ? "debugBreed" : "debugPatch"];
 
         if (forBreed) {
             setTargetBuffer(framebufferDBreed, debugTextureBreed);
@@ -1410,7 +1496,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         state.useProgram(prog.program);
         gl.bindVertexArray(prog.vao);
 
-        var tex = object[name];
+        let tex = object[name];
 
         state.activeTexture(gl.TEXTURE0);
         state.bindTexture(gl.TEXTURE_2D, tex);
@@ -1439,33 +1525,33 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         debugArray2 = new Uint8ClampedArray(width * height * 4);
         gl.readPixels(0, 0, width, height, gl.RGBA, gl.FLOAT, debugArray, 0);
 
-        for (var i = 0; i < width * height; i++) {
+        for (let i = 0; i < width * height; i++) {
             debugArray1[i] = debugArray[i * 4 + 0];
         }
 
-        for (var i = 0; i < width * height; i++) {
+        for (let i = 0; i < width * height; i++) {
             debugArray2[i * 4 + 0] = debugArray[i * 4 + 0] * 255;
             debugArray2[i * 4 + 1] = debugArray[i * 4 + 1] * 255;
             debugArray2[i * 4 + 2] = debugArray[i * 4 + 2] * 255;
             debugArray2[i * 4 + 3] = debugArray[i * 4 + 3] * 255;
         }
 
-        var img = new ImageData(debugArray2, width, height);
+        let img = new ImageData(debugArray2, width, height);
         debugCanvas1.getContext("2d").putImageData(img, 0, 0);
         setTargetBuffer(null, null);
 
         gl.bindVertexArray(null);
         return debugArray1;
-    }
+    };
 
     Shadama.prototype.readValues = function(object, name, x, y, w, h) {
-        var forBreed = object.constructor == Breed;
-        var maxWidth = forBreed ? T : FW;
-        var maxHeight = forBreed ? T : FH;
+        let forBreed = object.constructor === Breed;
+        let maxWidth = forBreed ? T : FW;
+        let maxHeight = forBreed ? T : FH;
 
         if (x < 0 || y < 0 || x >= maxWidth || y >= maxHeight
             || x + w >= maxWidth || y + h >= maxHeight) {
-            var error = new Error("runtime error");
+            let error = new Error("runtime error");
             error.reason = `coordiate is out of bounds`;
             error.expected = `coordiate is out of bounds`;
             error.pos = -1;
@@ -1473,7 +1559,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             throw error;
         }
 
-        var prog = programs[forBreed ? "debugBreed" : "debugPatch"];
+        let prog = programs[forBreed ? "debugBreed" : "debugPatch"];
 
         if (forBreed) {
             setTargetBuffer(framebufferDBreed, debugTextureBreed);
@@ -1484,7 +1570,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         state.useProgram(prog.program);
         gl.bindVertexArray(prog.vao);
 
-        var tex = object[name];
+        let tex = object[name];
 
         state.activeTexture(gl.TEXTURE0);
         state.bindTexture(gl.TEXTURE_2D, tex);
@@ -1515,20 +1601,20 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         setTargetBuffer(null, null);
         gl.bindVertexArray(null);
 
-        if (w == 1 && h == 1) {
+        if (w === 1 && h === 1) {
             return debugArray[0];
         }
 
-        for (var i = 0; i < w * h; i++) {
+        for (let i = 0; i < w * h; i++) {
             debugArray1[i] = debugArray[i * 4 + 0];
         }
 
         return debugArray1;
-    }
+    };
 
     Shadama.prototype.resetSystem = function() {
-        for (var s in this.steppers) {
-            var e = this.detectEntry(s);
+        for (let s in this.steppers) {
+            let e = this.detectEntry(s);
             if (e) {
                 this.stopClock(e.clock);
             }
@@ -1543,11 +1629,11 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
 
         renderRequests = [];
 
-        for (var o in this.env) {
-            var obj = this.env[o];
-            if (typeof obj == "object" && (obj.constructor == Breed || obj.constructor == Patch)) {
-                for (var k in obj.own) {
-                    var tex = obj[k];
+        for (let o in this.env) {
+            let obj = this.env[o];
+            if (typeof obj === "object" && (obj.constructor === Breed || obj.constructor === Patch)) {
+                for (let k in obj.own) {
+                    let tex = obj[k];
                     if (tex.constructor === WebGLTexture) {
                         gl.deleteTexture(obj[k]);
                     }
@@ -1555,26 +1641,25 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
                 delete this.env[o];
             }
         }
-    }
+    };
 
     Shadama.prototype.updateCode = function() {
         if (!editor) {return;}
-        var code = editor.getValue();
+        let code = editor.getValue();
         this.loadShadama(null, code);
         this.maybeRunner();
-        if (optEditor) return; // opt editor will take care of this 
         if (!this.programName) {
             this.programName = prompt("Enter the program name:", "My Cool Effect!");
             if (!this.programName) {
                 alert("program not saved");
                 return;
             }
-            code = "program " + '"' + this.programName + '"\n' + code;
+            code = `program " ${this.programName}"\n${code}`;
             editor.setValue(code);
         }
         localStorage.setItem(this.programName + ".shadama", code);
         this.initFileList(this.programName);
-    }
+    };
 
     Shadama.prototype.callSetup = function() {
         this.loadTime = window.performance.now() / 1000.0;
@@ -1588,235 +1673,237 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             }
         }
         return true;
-    }
+    };
 
     Shadama.prototype.addListeners = function(aCanvas) {
         if (!domTools) {return;}
-        var that = this;
-        var set = function(e, symbol) {
-            var rect = aCanvas.getBoundingClientRect();
-            var left = rect.left;
-            var top = rect.top;
-            var diffY = e.pageY - e.clientY;
-            var diffX = e.pageX - e.clientX;
-            var x = (e.clientX + diffX - left) / fullScreenScale;
-            var y = FH - (e.clientY + diffY - top) / fullScreenScale;
-            // console.log("y " + e.clientY + " top " + top + " pageY: " + e.pageY);
-            // console.log("x " + x + " y: " + y);
-            that.env[symbol] = {x: x,  y: y, time: that.env["time"]};
-        }
+        let set = (e, symbol) => {
+            var x = e.offsetX;
+            var y = FH - e.offsetY;
+            //  console.log("y " + e.clientY + " top " + top + " pageY: " + e.pageY);
+            //  console.log("x " + x + " y: " + y);
+            this.env[symbol] = {x,  y, time: this.env["time"]};
+        };
 
-        aCanvas.addEventListener("mousemove", function(e) {
-            set(e, "mousemove");
-        });
-        aCanvas.addEventListener("mousedown", function(e) {
-            set(e, "mousedown");
-        });
-        aCanvas.addEventListener("mouseup", function(e) {
-            set(e, "mouseup");
-        });
-        document.addEventListener('keypress', function(evt) {
+        aCanvas.addEventListener("mousemove", (e) => set(e, "mousemove"));
+        aCanvas.addEventListener("mousedown", (e) => set(e, "mousedown"));
+        aCanvas.addEventListener("mouseup", (e) => set(e, "mouseup"));
+        document.addEventListener('keypress', (evt) => {
             if (evt.target === document.body) {
-                if (evt.key =='`') {
-                    that.callSetup();
-                } else if (evt.key == "\\") {
-                    that.toggleScript("loop");
+                if (evt.key === '`') {
+                    this.callSetup();
+                } else if (evt.key === "!") {
+                    this.toggleScript("loop");
+                } else if (evt.key === "\\") {
+                    if (climatedemo) {
+                        this.setClimateFullScreen();
+                    }
                 }
             }
         }, true);
-    }
+    };
+
+    Shadama.prototype.add3DNavigation = function() {
+        document.addEventListener('keydown', (evt) => {
+            if (evt.target === document.body) {
+                if (["a", "w", "s", "d"].includes(evt.key)) {
+                    this.keys[evt.key] = true;
+                }
+            }
+        });
+        document.addEventListener('keyup', (evt) => {
+            if (["a", "w", "s", "d"].includes(evt.key)) {
+                delete this.keys[evt.key];
+            }
+        }, true);
+    };
 
     Shadama.prototype.initServerFiles = function() {
         if (!editor) {return;}
-        var examples = [
-            "1-Fill.shadama", "2-Disperse.shadama", "3-Gravity.shadama", "4-Two Circles.shadama", "5-Bounce.shadama", "6-Picture.shadama", "7-Duck Bounce.shadama", "8-Back and Forth.shadama", "9-Mandelbrot.shadama", "10-Life Game.shadama", "11-Ball Gravity.shadama", "12-Duck Gravity.shadama", "13-Ribbons.shadama", "16-Diffuse.shadama", "19-Bump.shadama", "21-ForestFire.shadama", "22-WhoAmI.shadama", "23-Camera.shadama"
+        let examples = [
+            "1-Fill.shadama", "2-Disperse.shadama", "3-Gravity.shadama", "4-Two Circles.shadama", "5-Bounce.shadama", "6-Picture.shadama", "7-Duck Bounce.shadama", "8-Back and Forth.shadama", "9-Mandelbrot.shadama", "10-Life Game.shadama", "11-Ball Gravity.shadama", "12-Duck Gravity.shadama", "13-Ribbons.shadama", "16-Diffuse.shadama", "19-Bump.shadama", "21-ForestFire.shadama", "22-WhoAmI.shadama", "23-Camera.shadama", "24-Minsky.shadama", "25-2DSystem.shadama"
         ];
         examples.forEach((n) => {
             this.env["Display"].loadProgram(n, (serverCode) => {
-                var localCode = localStorage.getItem(n);
+                //let localCode = localStorage.getItem(n);
                 //if (!localCode) {
                     localStorage.setItem(n, serverCode);
                 //}
                 this.initFileList();
-            })
+            });
         });
-    }
+    };
 
     Shadama.prototype.loadAudio = function(name) {
-        var event = new ShadamaEvent();
-        var that = this;
-        var location = rootURL;
+        let event = new ShadamaEvent();
+        let location = rootURL;
 
         if (!audioContext) {
             audioContext = new AudioContext();
         }
 
-        function loadSound(url) {
-            var request = new XMLHttpRequest();
+        let loadSound = (url) => {
+            let request = new XMLHttpRequest();
             request.open('GET', url, true);
             request.responseType = 'arraybuffer';
 
             // Decode asynchronously
-            request.onload = function() {
+            request.onload = () => {
                 audioContext.decodeAudioData(request.response,
-                                             function(buffer) {
+                                             (buffer) => {
                                                  event.setValue(buffer);
                                              },
-                                             function(error) {
+                                             (error) => {
                                                  console.log(error);
                                                  event.setValue("");
                                              });
-            }
+            };
             request.send();
-        }
+        };
 
         if (location.startsWith("http")) {
-            var slash = location.lastIndexOf("/");
+            let slash = location.lastIndexOf("/");
             loadSound(location.slice(0, slash) + "/" + name);
         } else {
             loadSound("http://tinlizzie.org/~ohshima/shadama2/" + name);
         }
         return event;
-    }
+    };
 
     Shadama.prototype.loadImage = function(name) {
-        var event = new ShadamaEvent();
-        var that = this;
+        let event = new ShadamaEvent();
 
-        var img = document.createElement("img");
-        var tmpCanvas = document.createElement("canvas");
-        var location = rootURL;
+        let img = document.createElement("img");
+        let tmpCanvas = document.createElement("canvas");
+        let location = rootURL;
+
+        let dir;
 
         if (location.startsWith("http")) {
             if (frame) {
-                var dir = frame.imagePath + name;
+                dir = frame.imagePath + name;
             } else {
-                var slash = location.lastIndexOf("/");
-                var dir = location.slice(0, slash) + "/" + name;
+                let slash = location.lastIndexOf("/");
+                dir = location.slice(0, slash) + "/" + name;
             }
             img.src = dir;
         } else {
             img.crossOrigin = "Anonymous";
-            img.onerror = function() {
+            img.onerror = () => {
                 console.log("no internet");
-                var newImage = that.emptyImageData(256, 256);
+                let newImage = this.emptyImageData(256, 256);
                 document.body.removeChild(img);
                 event.setValue(newImage);
-            }
+            };
             img.src = "http://tinlizzie.org/~ohshima/shadama2/" + name;
         }
 
         img.hidden = true;
 
-        img.onload = function() {
+        img.onload = () => {
             tmpCanvas.width = img.width;
             tmpCanvas.height = img.height;
             tmpCanvas.getContext('2d').drawImage(img, 0, 0);
-            var newImage = tmpCanvas.getContext('2d').getImageData(0, 0, img.width, img.height);
+            let newImage = tmpCanvas.getContext('2d').getImageData(0, 0, img.width, img.height);
             document.body.removeChild(img);
             event.setValue(newImage);
-        }
+        };
         document.body.appendChild(img);
         return event;
-    }
+    };
 
     Shadama.prototype.loadCSV = function(name) {
-        var that = this;
-        return (function() {
-            var xobj = new XMLHttpRequest();
-            var event = new ShadamaEvent();
-            var location = rootURL;
-            var dir;
-            if (name.startsWith("http")) {
-                dir = name;
-            } else {
-                if (location.startsWith("http")) {
-                    if (frame) {
-                        dir = frame.dataPath + name;
-                    } else {
-                        var slash = location.lastIndexOf("/");
-                        dir = location.slice(0, slash) + "/" + name;
-                    }
+        let xobj = new XMLHttpRequest();
+        let event = new ShadamaEvent();
+        let location = rootURL;
+        let dir;
+        if (name.startsWith("http")) {
+            dir = name;
+        } else {
+            if (location.startsWith("http")) {
+                if (frame) {
+                    dir = frame.dataPath + name;
                 } else {
-                    dir = "http://tinlizzie.org/~ohshima/shadama2/" + name;
+                    let slash = location.lastIndexOf("/");
+                    dir = location.slice(0, slash) + "/" + name;
                 }
+            } else {
+                dir = "http://tinlizzie.org/~ohshima/shadama2/" + name;
             }
-            xobj.open("GET", dir, true);
-            xobj.responseType = "blob";
-            
-            xobj.onload = function(oEvent) {
-                var blob = xobj.response;
-                var file = new File([blob], dir);
-                Papa.parse(file, {complete: resultCSV, error: errorCSV});
-            };
-            
-            function errorCSV(error, file) {
-                console.log("ERROR:", error, file);
-                event.setValue("");
-            }
-            
-            function resultCSV(result) {
-                var data = result.data;
-                event.setValue(data);
-            }
-            xobj.send();
-            return event;
-        })();
-    }
+        }
+        xobj.open("GET", dir, true);
+        xobj.responseType = "blob";
+
+        let errorCSV = (error, file) => {
+            console.log("ERROR:", error, file);
+            event.setValue("");
+        };
+
+        let resultCSV = (result) => {
+            var data = result.data;
+            event.setValue(data);
+        };
+
+        xobj.onload = function(_oEvent) {
+            let blob = xobj.response;
+            let file = new File([blob], dir);
+            Papa.parse(file, {complete: resultCSV, error: errorCSV});
+        };
+
+        xobj.send();
+        return event;
+    };
 
     Shadama.prototype.loadVideo = function(name, isCamera) {
-        var event = new ShadamaEvent(); //event to trigger that a frame is ready
-        var video = document.createElement("video");
+        let event = new ShadamaEvent(); //event to trigger that a frame is ready
+        let video = document.createElement("video");
 
         function initTexture() {
-            var texture = gl.createTexture();
+            let texture = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, texture);
 
             // Because video has to be download over the internet
             // they might take a moment until it's ready so
             // put a single pixel in the texture so we can
             // use it immediately.
-            var pixel = new Uint8Array([0, 0, 255, 255]);  // opaque blue
+            let pixel = new Uint8Array([0, 0, 255, 255]);  // opaque blue
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
                           1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
                           pixel);
-            
+
             // Turn off mips and set  wrapping to clamp to edge so it
             // will work regardless of the dimensions of the video.
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            
             return texture;
         }
 
         var videoTexture = initTexture();
 
-        function updateTexture(gl, texture, video) {
+        let updateTexture = (_gl, texture, _video) => {
             state.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,
                           gl.RGBA, gl.UNSIGNED_BYTE, video);
-        }
+        };
 
-        var playing = false;
-        var timeupdate = false;
+        let playing = false;
+        let timeupdate = false;
 
         video.autoplay = true;
         video.muted = true;
         video.loop = true;
 
-        video.addEventListener('playing', function() {
+        video.addEventListener('playing', () => {
             playing = true;
         }, true);
 
-        video.addEventListener('timeupdate', function() {
+        video.addEventListener('timeupdate', () => {
             timeupdate = true;
         }, true);
 
-        function checkReady() {
-            return playing && timeupdate;
-        }
+        let checkReady = () => playing && timeupdate;
 
         video.hidden = true;
         //document.body.appendChild(video);
@@ -1830,53 +1917,49 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
                 });
             }
         } else {
-            var location = rootURL;
+            let location =  rootURL;
+            let dir;
             if (location.startsWith("http")) {
                 if (frame) {
-                    var dir = frame.imagePath + name;
+                    dir = frame.imagePath + name;
                 } else {
-                    var slash = location.lastIndexOf("/");
-                    var dir = location.slice(0, slash) + "/" + name;
+                    let slash = location.lastIndexOf("/");
+                    dir = location.slice(0, slash) + "/" + name;
                 }
                 video.src = dir;
             } else {
                 video.crossOrigin = "Anonymous";
-                video.onerror = function() {
+                video.onerror = () => {
                     console.log("no internet");
-                }
+                };
                 video.src = "http://tinlizzie.org/~ohshima/shadama2/" + name;
             }
-            var p = video.play();
-        
-            if (p !== undefined) {
-                p.then(function() {
-                    console.log("Automatic playback started!");
-                }).catch(function(error) {
-                    console.log("Automatic playback failed!");
-                });
-            }
+            video.play().then(() => {
+                console.log("Automatic playback started!");
+            }).catch((_error) => {
+                console.log("Automatic playback failed!");
+            });
         }
 
-        event.setValue({updateTexture: updateTexture, video: video, texture: videoTexture, checkReady: checkReady});
-
+        event.setValue({updateTexture, video, texture: videoTexture, checkReady});
         return event;
-    }
+    };
 
     Shadama.prototype.clearMedia = function() {
-        for (var k in this.media) {
-            var event = this.media[k];
-            var value = event.value;
+        for (let k in this.media) {
+            let event = this.media[k];
+            let value = event.value;
             if (value.video) {
                 value.video.pause();
                 value.video.remove();
             }
         }
         this.media = {};
-    }
+    };
 
     Shadama.prototype.initDisplay = function() {
         this.env["Display"] = new Display(this);
-    }
+    };
 
     Shadama.prototype.initEnv = function(callback) {
         this.env.mousedown = {x: 0, y: 0};
@@ -1885,47 +1968,45 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         this.env.height = FH;
 
         callback();
-    }
+    };
 
     Shadama.prototype.makeClock = function() {
-        var aClock = document.createElement("canvas");
-        var that = this;
+        let aClock = document.createElement("canvas");
         aClock.width = 40;
         aClock.height = 40;
         aClock.ticking = false;
         aClock.hand = 0;
-        drawClock(aClock, 0, false);
+        this.drawClock(aClock, 0, false);
 
-        aClock.onclick = function () {that.toggleScript(aClock.entry.scriptName)};
-
+        aClock.onclick = () => this.toggleScript(aClock.entry.scriptName);
         return aClock;
-    }
+    };
 
     Shadama.prototype.stopClock = function(aClock) {
         aClock.ticking = false;
-        drawClock(aClock);
-    }
+        this.drawClock(aClock);
+    };
 
     Shadama.prototype.startClock = function(aClock) {
         aClock.ticking = true;
-        drawClock(aClock);
-    }
+        this.drawClock(aClock);
+    };
 
     Shadama.prototype.stopScript = function(name) {
         delete this.steppers[name];
-        var entry = this.detectEntry(name);
+        let entry = this.detectEntry(name);
         if (entry) {
             this.stopClock(entry.clock);
         }
-    }
+    };
 
     Shadama.prototype.startScript = function(name) {
         this.steppers[name] = name;
-        var entry = this.detectEntry(name);
+        let entry = this.detectEntry(name);
         if (entry) {
             this.startClock(entry.clock);
         }
-    }
+    };
 
     Shadama.prototype.toggleScript = function(name) {
         if (this.steppers[name]) {
@@ -1933,11 +2014,11 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         } else {
             this.startScript(name);
         }
-    }
+    };
 
-    function drawClock(aClock) {
-        var hand = aClock.hand;
-        var ticking = aClock.ticking;
+    Shadama.prototype.drawClock = function(aClock) {
+        let hand = aClock.hand;
+        let ticking = aClock.ticking;
         function drawFace(ctx, radius, backColor) {
             ctx.moveTo(0, 0);
             ctx.beginPath();
@@ -1953,7 +2034,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             ctx.arc(0, 0, radius*0.1, 0, 2*Math.PI);
             ctx.fillStyle = "#333";
             ctx.fill();
-        };
+        }
 
         function drawHand(ctx, length, dir) {
             ctx.beginPath();
@@ -1963,84 +2044,83 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             ctx.rotate(dir);
             ctx.lineTo(0, -length);
             ctx.stroke();
-        };
+        }
 
-        var ctx = aClock.getContext('2d');
-        var backColor = ticking ? '#ffcccc' : '#ffffff';
-        var dir = hand / 360.0 * (Math.PI * 2.0);
+        let ctx = aClock.getContext('2d');
+        let backColor = ticking ? '#ffcccc' : '#ffffff';
+        let dir = hand / 360.0 * (Math.PI * 2.0);
 
         ctx.transform(1, 0, 0, 1, 18, 18);
         drawFace(aClock.getContext('2d'), 16, backColor);
         drawHand(aClock.getContext('2d'), 10, dir);
         ctx.resetTransform();
-    }
+    };
 
     Shadama.prototype.makeEntry = function(name) {
-        if (!domTools) {return;}
-        var entry = document.createElement("div");
-        var aClock = this.makeClock();
-        var that = this;
+        if (!domTools) {return null;}
+        let entry = document.createElement("div");
+        let aClock = this.makeClock();
         entry.scriptName = name;
         entry.appendChild(aClock);
         entry.clock = aClock;
         aClock.entry = entry;
-        var button = document.createElement("div");
+        let button = document.createElement("div");
         button.className = "staticName";
         button.innerHTML = name;
-        button.onclick = function() {
-            that.env["time"] = (window.performance.now() / 1000) - that.loadTime;
-            if (that.statics[entry.scriptName]) {
+        button.onclick = () => {
+            this.env["time"] = (window.performance.now() / 1000) - this.loadTime;
+            if (this.statics[entry.scriptName]) {
                 try {
-                    that.statics[entry.scriptName](that.env);
+                    this.statics[entry.scriptName](this.env);
                 } catch (e) {
-                    that.reportError(e);
+                    this.reportError(e);
                 }
             }
         };
         entry.appendChild(button);
         return entry;
-    }
+    };
 
     Shadama.prototype.detectEntry = function(name) {
-        if (!domTools) {return;}
-        for (var j = 0; j < watcherList.children.length; j++) {
-            var oldEntry = watcherList.children[j];
+        if (!domTools) {return null;}
+        for (let j = 0; j < watcherList.children.length; j++) {
+            let oldEntry = watcherList.children[j];
             if (oldEntry.scriptName === name) {return oldEntry;}
         }
         return null;
-    }
+    };
 
     Shadama.prototype.removeAll = function() {
         if (!domTools) {return;}
         while (watcherList.firstChild) {
             watcherList.removeChild(watcherList.firstChild);
         }
-    }
+    };
 
     Shadama.prototype.addAll = function(elems) {
         if (!domTools) {return;}
-        for (var j = 0; j < elems.length; j++) {
+        for (let j = 0; j < elems.length; j++) {
             watcherList.appendChild(elems[j]);
         }
-    }
+    };
 
     Shadama.prototype.updateClocks = function() {
         if (!domTools) {return;}
-        for (var j = 0; j < watcherList.children.length; j++) {
-            var child = watcherList.children[j];
-            var aClock = child.clock;
+        for (let j = 0; j < watcherList.children.length; j++) {
+            let child = watcherList.children[j];
+            let aClock = child.clock;
             if (aClock.ticking) {
                 aClock.hand = (aClock.hand + 2) % 360;
             }
-            drawClock(aClock);
+            this.drawClock(aClock);
         }
-    }
+    };
 
     Shadama.prototype.selectFile = function(dom) {
         if (dom.selectedIndex > 0) {// 0 is for the default label
-            var option = dom.options[dom.selectedIndex];
-            var name = option.label;
-            var source = localStorage.getItem(name);
+            let option = dom.options[dom.selectedIndex];
+            let name = option.label;
+            let source = localStorage.getItem(name);
             if (source) {
                 this.env["Display"].clear();
                 console.log("loading: " + name);
@@ -2052,24 +2132,30 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
                 this.maybeRunner();
             }
         }
-    }
+    };
 
     Shadama.prototype.initFileList = function(optSelection) {
-        var that = this;
         if (optSelection) {
             if (!optSelection.endsWith(".shadama")) {
-                optSelection = optSelection + ".shadama";
+                optSelection += ".shadama";
             }
         }
-        var dom = documentRoot.querySelector("#myDropdown");
-        if(!dom) {return} 
-        dom.onchange = function() {that.selectFile(dom);};
-        var selectIndex = null;
+        let dom = documentRoot.querySelector("#myDropdown");
+        if(!dom) {return}
+        dom.onchange = () => {this.selectFile(dom);};
+        let selectIndex = null;
         if (localStorage) {
-            var list = Object.keys(localStorage).filter((k) => k.endsWith(".shadama"));
+            let list = Object.keys(localStorage).filter((k) => k.endsWith(".shadama"));
+            list.sort((a, b) => {
+                let aVal = parseFloat(a);
+                let bVal = parseFloat(b);
+                if (a === 0) {return -1;}
+                if (b === 0) {return 1;}
+                return aVal - bVal;
+            });
             dom.options.length = 0;
             dom.options[0] = new Option("Choose a File:", 0);
-            for(var i = 0; i < list.length; i++) {
+            for (let i = 0; i < list.length; i++) {
                 dom.options[dom.options.length] = new Option(list[i], i + 1);
                 if (optSelection && list[i] === optSelection) {
                     selectIndex = i + 1;
@@ -2079,45 +2165,44 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
                 dom.selectedIndex = selectIndex;
             }
         }
-    }
+    };
 
     Shadama.prototype.updateEnv = function() {
-        var that = this;
-        function printNum(obj) {
+        let printNum = (obj) => {
             if (typeof obj !== "number") return obj;
             let str = Math.abs(obj) < 1 ? obj.toPrecision(3) : obj.toFixed(3);
             return str.replace(/\.0*$/, "");
-        }
-        function print(obj) {
+        };
+
+        let print = (obj) => {
             if (typeof obj !== "object") return printNum(obj);
-            if (typeof obj == "object" && obj.constructor === ShadamaEvent) return print(obj.value);
+            if (typeof obj === "object" && obj.constructor === ShadamaEvent) return print(obj.value);
             let props = Object.getOwnPropertyNames(obj)
-                .filter((k)=>typeof obj[k] !== "object")
+                .filter((k) => typeof obj[k] !== "object")
                 .map((k)=>`${k}:${printNum(obj[k])}`);
             return `{${props.join(' ')}}`;
-        }
-        function filter(k) {
+        };
+        let filter = (k) => {
             if (showAllEnv) {
                 return true;
-            } else {
-                return(that.env[k] && that.env[k].constructor != ImageData);
             }
-        }
-        let list = Object.getOwnPropertyNames(that.env)
+            return this[k] && this.env[k].constructor !== ImageData;
+        };
+        let list = Object.getOwnPropertyNames(this.env)
             .sort()
             .filter(filter)
-            .map((k)=>`${k}: ${print(that.env[k])}`);
+            .map((k)=>`${k}: ${print(this.env[k])}`);
         if (envList) {
             envList.innerHTML = `<pre>${list.join('\n')}</pre>`;
         }
-    }
+    };
 
     Shadama.prototype.populateList = function(newList) {
         if (!domTools) {return;}
         watcherElements = [];
-        for (var i = 0; i < newList.length; i++) {
-            var name = newList[i];
-            var entry = this.detectEntry(name);
+        for (let i = 0; i < newList.length; i++) {
+            let name = newList[i];
+            let entry = this.detectEntry(name);
             if (!entry) {
                 entry = this.makeEntry(name);
             }
@@ -2125,112 +2210,401 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
         this.removeAll();
         this.addAll(watcherElements);
-    }
+    };
 
     Shadama.prototype.addEnv = function(key, asset) {
         this.env[key] = asset;
-    }
+    };
 
     Shadama.prototype.runLoop = function() {
         if (this.statics["loop"]) {
             this.startScript("loop");
         }
-    }
+    };
 
     Shadama.prototype.once = function(name) {
         if (this.statics[name]) {
-            this.statics[name](this.env);
+            try {
+                this.statics[name](this.env);
+            } catch(e) {
+                this.reportError(e);
+            }
         }
-    }
+    };
 
     Shadama.prototype.setEditor = function(anEditor, type) {
         editor = anEditor;
         editorType = type;
-    }
-
-    function Display(shadama) {
-        this.shadama = shadama;
-        if (withThreeJS) {
-            this.clearColor = new THREE.Color(0xFFFFFFFF);
-            this.otherColor = new THREE.Color(0x00000000);
-        } else {
-            this.clearColor = 'white';
-        }
-    }
-
-    Display.prototype.clear = function() {
-        var t = webglTexture();
-        if (t) {
-            setTargetBuffer(framebufferU8RGBA, t);
-        } else {
-            setTargetBuffer(null, null);
-        }
-
-        if (withThreeJS) {
-            this.otherColor.copy(renderer.getClearColor());
-            renderer.setClearColor(this.clearColor);
-            renderer.clearColor();
-            renderer.setClearColor(this.otherColor);
-        } else {
-            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-            gl.clearColor(1.0, 1.0, 1.0, 1.0);
-            gl.clear(gl.COLOR_BUFFER_BIT);
-        }
-
-        if (!t) {
-            setTargetBuffer(null, null);
-        }
-    }
-
-    Display.prototype.playSound = function(buffer) {
-        if (!buffer) {return}
-        if (buffer.constructor === ShadamaEvent) {
-            buffer = buffer.value;
-        }
-        var source = audioContext.createBufferSource(); // creates a sound source
-        source.buffer = buffer;                    // tell the source which sound to play
-        source.connect(audioContext.destination);       // connect the source to the context's destination (the speakers)
-        source.start(0);                           // play the source now
-    }
-
-    Display.prototype.loadProgram = function(name, func) {
-        var location = rootURL;
-        if (!location.startsWith("http")) {return;}
-        var slash = location.lastIndexOf("/");
-        var dir = location.slice(0, slash) + "/" + "examples";
-        var that = this;
-
-        var file = dir + "/" + encodeURIComponent(name);
-        var xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange = function() {
-            if (this.readyState == 4 && this.status == 200) {
-                var serverCode = xhttp.responseText;
-                if (func) {
-                    func(serverCode);
-                } else {
-                    that.shadama.loadShadama(null, serverCode);
-                    if (editor) {
-                        editor.doc.setValue(serverCode);
-                    }
-                    that.shadama.maybeRunner();
-                }
-            }
-        };
-        xhttp.open("GET", file, true);
-        xhttp.send();
     };
 
     Shadama.prototype.emptyImageData = function(width, height) {
-        var ary = new Uint8ClampedArray(width * height * 4);
-        for (var i = 0; i < width * height; i++) {
+        let ary = new Uint8ClampedArray(width * height * 4);
+        for (let i = 0; i < width * height; i++) {
             ary[i * 4 + 0] = i;
             ary[i * 4 + 1] = 0;
             ary[i * 4 + 2] = 0;
             ary[i * 4 + 3] = 255;
         }
         return new ImageData(ary, 256, 256);
+    };
+
+    Shadama.prototype.cleanUpEditorState = function() {
+        if (editor) {
+            if (editorType === "CodeMirror") {
+                if (parseErrorWidget) {
+                    editor.removeLineWidget(parseErrorWidget);
+                    parseErrorWidget = null;
+                }
+                editor.getAllMarks().forEach((mark) => mark.clear());
+            }
+            if (editorType === "Carota") {
+                if (parseErrorWidget) {
+                    parseErrorWidget.visible(false);
+                }
+            }
+        }
+    };
+
+    Shadama.prototype.reportError = function(error) {
+        let toDOM = (x) => {
+            if (x instanceof Array) {
+                let xNode = document.createElement(x[0]);
+                x.slice(1)
+                    .map(toDOM)
+                    .forEach(yNode => xNode.appendChild(yNode));
+                return xNode;
+            }
+            return document.createTextNode(x);
+        };
+
+        if (editor) {
+            if (editorType === "CodeMirror") {
+                if (error.message !== "runtime error") {
+                    setTimeout(
+                        function() {
+                            let msg = error.expected;
+                            let pos = error.pos;
+                            let src = error.src;
+                            if ((!src || editor.getValue() === src) && !parseErrorWidget) {
+                                function repeat(x, n) {
+                                    let xs = [];
+                                    while (n-- > 0) {
+                                        xs.push(x);
+                                    }
+                                    return xs.join('');
+                                }
+                                let docPos = editor.doc.posFromIndex(pos);
+                                let widget = toDOM(['parseerror', repeat(' ', docPos.ch) + '^\n' + msg]);
+                                if (pos && msg) {
+                                    console.log(pos, msg);
+                                } else {
+                                    console.log(error);
+                                }
+                                parseErrorWidget = editor.addLineWidget(docPos.line, widget);
+                            }
+                        },
+                        1500);
+                } else {
+                    for (let n in this.steppers) {
+                        this.stopScript(n);
+                    }
+                    alert(error.expected);
+                }
+            }
+        } else {
+            let msg = error.expected;
+            let pos = error.pos;
+            if (pos && msg) {
+                console.log(pos, msg);
+            } else {
+                console.log(error);
+            }
+        }
+    };
+
+    Shadama.prototype.setVariable = function(varName, value) {
+        this.env[varName] = value;
+    };
+
+    Shadama.prototype.step = function() {
+        this.env["time"] = (window.performance.now() / 1000) - this.loadTime;
+        for (let k in this.triggers) {
+            this.triggers[k].maybeFire(this);
+        }
+        try {
+            for (let k in this.steppers) {
+                let func = this.statics[k];
+                if (func) {
+                    func(this.env);
+                }
+            }
+        } catch(e) {
+            this.reportError(e);
+        }
+    };
+
+    Shadama.prototype.maybeRunner = function(optFunc) {
+        if (!animationRequested) {
+            this.runner(optFunc);
+        }
+    };
+
+    Shadama.prototype.runner = function(optFunc) {
+        let that = this;
+        this.stopped = false;
+
+        let runBody = () => {
+            if (that.stopped) return;
+            if (domTools) {
+                animationRequested = false;
+                let start = performance.now();
+                that.step();
+                let now = performance.now();
+                times.push({start, step: now - start});
+
+                if ((times.length > 0 && now - times[0].start > 1000) || times.length === 2) {
+                    while (times.length > 1 && now - times[0].start > 500) {
+                        times.shift();
+                    }
+
+                    let frameTime = (times[times.length-1].start - times[0].start) / (times.length - 1);
+                    //let stepTime = times.reduce((a, b) => ({step: a.step + b.step})).step / times.length;
+                    readout.innerHTML = "" + frameTime.toFixed(1) + " msecs/frame (" + (1000 / frameTime).toFixed(1) + " fps)";
+                    that.updateEnv();
+                }
+
+                that.updateClocks();
+
+                if (optFunc) {
+                    optFunc();
+                }
+                if (keepGoing) {
+                    window.requestAnimationFrame(runBody);
+                    animationRequested = true;
+                } else {
+                    keepGoing = true;
+                }
+            }
+        };
+        runBody();
+    };
+
+    Shadama.prototype.destroy = function() {
+        if (editorType === "Carota") {
+            if (parseErrorWidget) {
+                parseErrorWidget.removeSelf();
+            }
+        }
+        //
+    };
+
+    Shadama.prototype.pause = function() {
+        this.steppers = {};
+    };
+
+    Shadama.prototype.pointermove = function(x, y) {
+        this.env.mousemove = {x, y};
+    };
+
+    Shadama.prototype.pointerup = function(x, y) {
+        this.env.mouseup = {x, y};
+    };
+
+    Shadama.prototype.pointerdown = function(x, y) {
+        this.env.mousedown = {x, y};
+    };
+
+    Shadama.prototype.tester = function() {
+        return {
+            parse,
+            update,
+            translate,
+            s,
+            Breed,
+            Patch,
+            SymTable,
+        };
+    };
+
+    Shadama.prototype.goFullScreen = function() {
+        let req = shadamaCanvas.requestFullscreen || shadamaCanvas.webkitRequestFullscreen
+            || shadamaCanvas.mozRequestFullScreen || shadamaCanvas.msRequestFullscreen;
+
+        if (req) {
+            req.call(shadamaCanvas);
+
+            let fsChanged = () => {
+                if (document.fullscreenElement
+                    || document.webkitFullscreenElement
+                    || document.mozFullScreenElement
+                    || document.msFullscreenElement) {
+                    let rx = window.innerWidth / FW;
+                    let ry = window.innerHeight / FH;
+                    fullScreenScale = Math.min(rx, ry);
+                    shadamaCanvas.style.width = FW * fullScreenScale + 'px';
+                    shadamaCanvas.style.height = FH * fullScreenScale + 'px';
+                } else {
+                    fullScreenScale = 1.0;
+                    shadamaCanvas.style.width = FW + 'px';
+                    shadamaCanvas.style.height = FH + 'px';
+                }
+            };
+
+            document.addEventListener("fullscreenchange", fsChanged);
+            document.addEventListener("webkitfullscreenchange", fsChanged);
+            document.addEventListener("mozfullscreenchange", fsChanged);
+            document.addEventListener("MSFullscreenChange", fsChanged);
+        }
+    };
+
+    Shadama.prototype.resizeClimateFullScreen = function() {
+        let box = {width: window.innerWidth, height: window.innerHeight};
+        let scale = Math.min(box.width / 1024, box.height / 768);
+        shadamaCanvas.style.setProperty("transform", `scale(${scale})`);
+        shadamaCanvas.style.setProperty("transform-origin", `0 0`);
+    };
+
+    Shadama.prototype.setClimateFullScreen = function(optFlag) {
+        let flag = optFlag;
+        if (flag === undefined) {
+            flag = !this.climateFullScreen;
+        }
+
+        if (flag === this.climateFullScreen) {return;}
+        this.climateFullScreen = flag;
+
+        let elems = ["bigTitle", "controlBox", "readout", "fullScreenButton"];
+        let canvasHolder = document.getElementById("canvasHolder");
+
+        shadamaCanvas = document.getElementById("shadamaCanvas");
+        if (flag) {
+            elems.forEach(n => {
+                document.getElementById(n).style.setProperty("display", "none");
+            });
+            canvasHolder.style.setProperty("float", "none");
+            canvasHolder.style.setProperty("width", "100%");
+            canvasHolder.style.setProperty("height", "100%");
+            // shadamaCanvas.style.setProperty("border", "0px");
+            shadamaCanvas.style.setProperty("margin-right", "0px");
+
+            window.onresize = () => this.resizeClimateFullScreen();
+
+            this.resizeClimateFullScreen();
+            let code = document.body.querySelector(".CodeMirror");
+            if (code) {
+                code.style.setProperty("display", "none");
+            }
+            document.body.style.setProperty("margin", "0px");
+        } else {
+            elems.forEach(n => {
+                document.getElementById(n).style.removeProperty("display");
+            });
+            canvasHolder.style.removeProperty("float");
+            canvasHolder.style.removeProperty("width");
+            canvasHolder.style.removeProperty("height");
+            // shadamaCanvas.style.removeProperty("border");
+            shadamaCanvas.style.removeProperty("margin-right");
+            let code = document.body.querySelector(".CodeMirror");
+            if (code) {
+                code.style.removeProperty("display");
+            }
+            document.body.style.removeProperty("margin");
+            delete window.onresize;
+        }
+        if (croquetView) {
+            croquetView.updateFullScreen(this.climateFullScreen);
+        }
+    };
+
+    class Display {
+        constructor(shadama) {
+            this.shadama = shadama;
+            if (withThreeJS) {
+                this.clearColor = new THREE.Color(0xFFFFFFFF);
+                this.otherColor = new THREE.Color(0x00000000);
+            } else {
+                this.clearColor = [1, 1, 1, 1];
+            }
+        }
+
+        clear() {
+            let t = webglTexture();
+            if (t) {
+                setTargetBuffer(framebufferU8RGBA, t);
+            } else {
+                setTargetBuffer(null, null);
+            }
+
+            if (withThreeJS) {
+                this.otherColor.copy(renderer.getClearColor());
+                renderer.setClearColor(this.clearColor);
+                renderer.clearColor();
+                renderer.setClearColor(this.otherColor);
+            } else {
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+                gl.clearColor(...this.clearColor);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+            }
+
+            if (!t) {
+                setTargetBuffer(null, null);
+            }
+        }
+
+        setClearColor(r, g, b, a) {
+            this.clearColor = [r, g, b, a];
+        }
+
+        playSound(buffer) {
+            if (!buffer) {return;}
+            if (buffer.constructor === ShadamaEvent) {
+                buffer = buffer.value;
+            }
+            let source = audioContext.createBufferSource(); // creates a sound source
+            source.buffer = buffer;                    // tell the source which sound to play
+            source.connect(audioContext.destination);       // connect the source to the context's destination (the speakers)
+            source.start(0);                           // play the source now
+        }
+
+        loadProgram(name, func) {
+            let location = rootURL;
+            if (!location.startsWith("http")) {return;}
+            let slash = location.lastIndexOf("/");
+            let dir = `${location.slice(0, slash)}/examples`;
+
+            let file = dir + "/" + encodeURIComponent(name);
+
+            let shadama = this.shadama;
+            let xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = () => {
+                if (xhttp.readyState === 4 && xhttp.status === 200) {
+                    let serverCode = xhttp.responseText;
+                    if (func) {
+                        func(serverCode);
+                    } else {
+                        shadama.loadShadama(null, serverCode);
+                        if (editor) {
+                            editor.doc.setValue(serverCode);
+                        }
+                        shadama.maybeRunner();
+                    }
+                }
+            };
+            xhttp.open("GET", file, true);
+            xhttp.send();
+        }
+
+        croquetPublish(name, v1, v2) {
+            if (croquetView) {
+                croquetView.publishMessage(name, v1, v2);
+            }
+        }
+
+        debugger() {
+            debugger;
+        }
     }
-    
+
     class StandAloneRenderer {
         setRenderTarget(framebuffer, optType) {
             gl.bindFramebuffer( optType || gl.FRAMEBUFFER, framebuffer );
@@ -2241,22 +2615,23 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         constructor(count) {
             this.own = {};
             this.count = count;
+            this.pointSize = 1;
         }
 
         fillRandom(name, min, max) {
-            var ary = new Float32Array(T * T);
-            var range = max - min;
-            for (var i = 0; i < ary.length; i++) {
+            let ary = new Float32Array(T * T);
+            let range = max - min;
+            for (let i = 0; i < ary.length; i++) {
                 ary[i] = Math.random() * range + min;
             }
             updateOwnVariable(this, name, ary);
         }
 
         fillRandomDir(xName, yName) {
-            var x = new Float32Array(T * T);
-            var y = new Float32Array(T * T);
-            for (var i = 0; i < x.length; i++) {
-                var dir = Math.random() * Math.PI * 2.0;
+            let x = new Float32Array(T * T);
+            let y = new Float32Array(T * T);
+            for (let i = 0; i < x.length; i++) {
+                let dir = Math.random() * Math.PI * 2.0;
                 x[i] = Math.cos(dir);
                 y[i] = Math.sin(dir);
             }
@@ -2265,12 +2640,12 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         fillRandomDir3(xName, yName, zName) {
-            var x = new Float32Array(T * T);
-            var y = new Float32Array(T * T);
-            var z = new Float32Array(T * T);
-            for (var i = 0; i < x.length; i++) {
-                var angleY = Math.random() * Math.PI * 2.0;
-                var angleX = Math.asin(Math.random() * 2.0 - 1.0);
+            let x = new Float32Array(T * T);
+            let y = new Float32Array(T * T);
+            let z = new Float32Array(T * T);
+            for (let i = 0; i < x.length; i++) {
+                let angleY = Math.random() * Math.PI * 2.0;
+                let angleX = Math.asin(Math.random() * 2.0 - 1.0);
                 x[i] = Math.sin(angleX);
                 y[i] = Math.cos(angleX) * Math.cos(angleY);
                 z[i] = Math.cos(angleX) * Math.sin(angleY);
@@ -2282,12 +2657,12 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
 
         fillSpace(xName, yName, xDim, yDim) {
             this.setCount(xDim * yDim);
-            var x = new Float32Array(T * T);
-            var y = new Float32Array(T * T);
+            let x = new Float32Array(T * T);
+            let y = new Float32Array(T * T);
 
-            for (var j = 0; j < yDim; j++) {
-                for (var i = 0; i < xDim; i++) {
-                    var ind = xDim * j + i;
+            for (let j = 0; j < yDim; j++) {
+                for (let i = 0; i < xDim; i++) {
+                    let ind = xDim * j + i;
                     x[ind] = i;
                     y[ind] = j;
                 }
@@ -2295,9 +2670,9 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             updateOwnVariable(this, xName, x);
             updateOwnVariable(this, yName, y);
         }
-      
+
         fillRectangle(xName, yName, minX, maxX, minY, maxY) {
-            
+
             var aryX = new Float32Array(T * T);
             var rangeX = maxX - minX;
             var aryY = new Float32Array(T * T);
@@ -2314,20 +2689,20 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             }
             updateOwnVariable(this, xName, aryX);
             updateOwnVariable(this, yName, aryY);
-                       
+
         }
 
         fillCuboid(xName, yName, zName, xDim, yDim, zDim, step) {
             this.setCount(xDim * yDim);
-            var x = new Float32Array(T * T);
-            var y = new Float32Array(T * T);
-            var z = new Float32Array(T * T);
+            let x = new Float32Array(T * T);
+            let y = new Float32Array(T * T);
+            let z = new Float32Array(T * T);
 
-            var ind = 0;
+            let ind = 0;
 
-            for (var l = 0; l < zDim; l += step) {
-                for (var j = 0; j < yDim; j += step) {
-                    for (var i = 0; i < xDim; i += step) {
+            for (let l = 0; l < zDim; l += step) {
+                for (let j = 0; j < yDim; j += step) {
+                    for (let i = 0; i < xDim; i += step) {
                         x[ind] = i;
                         y[ind] = j;
                         z[ind] = l;
@@ -2341,9 +2716,9 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         fill(name, value) {
-            var x = new Float32Array(T * T);
+            let x = new Float32Array(T * T);
 
-            for (var j = 0; j < this.count; j++) {
+            for (let j = 0; j < this.count; j++) {
                 x[j] = value;
             }
             updateOwnVariable(this, name, x);
@@ -2351,7 +2726,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
 
         fillImage(xName, yName, rName, gName, bName, aName, imagedata) {
             if (imagedata === undefined) {
-                var error = new Error("runtime error");
+                let error = new Error("runtime error");
                 error.reason = `imagedata is not available`;
                 error.expected = `imagedata is not available`;
                 error.pos = -1;
@@ -2361,19 +2736,19 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             if (imagedata.constructor === ShadamaEvent) {
                 imagedata = imagedata.value;
             }
-            var xDim = imagedata.width;
-            var yDim = imagedata.height;
+            let xDim = imagedata.width;
+            let yDim = imagedata.height;
             this.fillSpace(xName, yName, xDim, yDim);
 
-            var r = new Float32Array(T * T);
-            var g = new Float32Array(T * T);
-            var b = new Float32Array(T * T);
-            var a = new Float32Array(T * T);
+            let r = new Float32Array(T * T);
+            let g = new Float32Array(T * T);
+            let b = new Float32Array(T * T);
+            let a = new Float32Array(T * T);
 
-            for (var j = 0; j < yDim; j++) {
-                for (var i = 0; i < xDim; i++) {
-                    var src = j * xDim + i;
-                    var dst = (yDim - 1 - j) * xDim + i;
+            for (let j = 0; j < yDim; j++) {
+                for (let i = 0; i < xDim; i++) {
+                    let src = j * xDim + i;
+                    let dst = (yDim - 1 - j) * xDim + i;
                     r[dst] = imagedata.data[src * 4 + 0] / 255.0;
                     g[dst] = imagedata.data[src * 4 + 1] / 255.0;
                     b[dst] = imagedata.data[src * 4 + 2] / 255.0;
@@ -2386,18 +2761,22 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             updateOwnVariable(this, aName, a);
         }
 
+        setPointSize(size) {
+            this.pointSize = size;
+        }
+
         loadData(data) {
             // assumes that the first line is the schema of the table
             if (data.constructor === ShadamaEvent) {
                 data = data.value;
             }
-            var schema = data[0];
+            let schema = data[0];
 
-            for (var k in this.own) {
-                var ind = schema.indexOf(k);
+            for (let k in this.own) {
+                let ind = schema.indexOf(k);
                 if (ind >= 0) {
-                    var ary = new Float32Array(T * T);
-                    for (var i = 1; i < data.length; i++) {
+                    let ary = new Float32Array(T * T);
+                    for (let i = 1; i < data.length; i++) {
                         ary[i - 1] = data[i][ind];
                     }
                     updateOwnVariable(this, k, ary);
@@ -2413,17 +2792,19 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
 
             if (!video.checkReady()) {return;}
 
-            var vTex = video.texture; // rgba
+            let vTex = video.texture; // rgba
 
-            var updateTexture = video.updateTexture;
+            let updateTexture = video.updateTexture;
             updateTexture(gl, vTex, video.video);
 
-            var prog = programs["copyRGBA"];
-            var that = this;
+            let prog = programs["copyRGBA"];
+            let that = this;
 
-            var cs = ["r", "g", "b", "a"];
+            let cs = ["r", "g", "b", "a"];
 
-            var targets = cs.map(function(n) {return that[N + n]});
+            let targets = cs.map((n) => this[N + n]);
+
+            framebufferBreed = makeFramebuffer(gl.R32F, T, T);
             setTargetBuffers(framebufferBreed, targets);
 
             state.useProgram(prog.program);
@@ -2447,11 +2828,13 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             gl.flush();
 
             noBlend();
+            gl.deleteFramebuffer(framebufferBreed);
+            framebufferBreed = null;
 
             setTargetBuffer(null, null);
-            for (var i = 0; i < cs.length; i++) {
-                var name = cs[i];
-                var tmp = that[name];
+            for (let i = 0; i < cs.length; i++) {
+                let name = cs[i];
+                let tmp = that[name];
                 this[name] = this[N + name];
                 this[N + name] = tmp;
             }
@@ -2459,8 +2842,8 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         draw() {
-            var prog = programs["drawBreed"];
-            var t = webglTexture();
+            let prog = programs["drawBreed"];
+            let t = webglTexture();
 
             if (t) {
                 setTargetBuffer(framebufferU8RGBA, t);
@@ -2502,6 +2885,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             }
             gl.uniform2f(prog.uniLocations["u_resolution"], FW, FH);
             gl.uniform2f(prog.uniLocations["u_half"], 0.5/FW, 0.5/FH);
+            gl.uniform1f(prog.uniLocations["u_pointSize"], this.pointSize);
 
             gl.drawArrays(gl.POINTS, 0, this.count);
             gl.flush();
@@ -2519,9 +2903,9 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         realRender(mvMatrix, pMatrix) {
-            var prog = programs["renderBreed"];
-            var breed = this;
-            var uniLocations = prog.uniLocations;
+            let prog = programs["renderBreed"];
+            let breed = this;
+            let uniLocations = prog.uniLocations;
 
             state.useProgram(prog.program);
             gl.bindVertexArray(prog.vao);
@@ -2556,9 +2940,9 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
             state.bindTexture(gl.TEXTURE_2D, breed.a);
             gl.uniform1i(prog.uniLocations["u_a"], 6);
 
-            var maybeD = breed["d"];
+            let maybeD = breed["d"];
             if (maybeD !== undefined) {
-                if (typeof maybeD == "number") {
+                if (typeof maybeD === "number") {
                     gl.uniform1i(prog.uniLocations["u_use_vector"], 0);
                     gl.uniform1f(prog.uniLocations["u_dotSize"], maybeD);
                     gl.uniform1i(prog.uniLocations["u_d"], 0);
@@ -2589,14 +2973,14 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         increasePatch(patch, name, valueOrSrcName) {
-            var prog = programs["increasePatch"];
+            let prog = programs["increasePatch"];
 
-            var src = patch[name];
-            var dst = patch[N + name];
+            let src = patch[name];
+            let dst = patch[N + name];
             textureCopy(patch, src, dst);
             setTargetBuffer(framebufferDiffuse, dst);
 
-            var uniLocations = prog.uniLocations;
+            let uniLocations = prog.uniLocations;
 
             state.useProgram(prog.program);
             gl.bindVertexArray(prog.vao);
@@ -2642,14 +3026,14 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         increaseVoxel(patch, name, valueOrSrcName) {
-            var prog = programs["increaseVoxel"];
+            let prog = programs["increaseVoxel"];
 
-            var src = patch[name];
-            var dst = patch[N + name];
+            let src = patch[name];
+            let dst = patch[N + name];
             textureCopy(patch, src, dst);
             setTargetBuffer(framebufferDiffuse, dst);
 
-            var uniLocations = prog.uniLocations;
+            let uniLocations = prog.uniLocations;
 
             state.useProgram(prog.program);
             gl.bindVertexArray(prog.vao);
@@ -2701,17 +3085,15 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         readValues(n, x, y, w, h) {
-            var val = shadama.readValues(this, n, x, y, w, h);
+            let val = shadama.readValues(this, n, x, y, w, h);
             return new ShadamaEvent().setValue(val);
         }
 
         setCount(n) {
-            var oldCount = this.count;
             if (n < 0 || !n) {
                 n = 0;
             }
             this.count = n;
-            //
         }
     }
 
@@ -2721,8 +3103,8 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         draw() {
-            var prog = programs["drawPatch"];
-            var t = webglTexture();
+            let prog = programs["drawPatch"];
+            let t = webglTexture();
 
             if (t) {
                 setTargetBuffer(framebufferU8RGBA, t);
@@ -2774,8 +3156,8 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         realRender(mvMatrix, pMatrix) {
-            var prog = programs["renderPatch"];
-            var t = webglTexture();
+            let prog = programs["renderPatch"];
+            let t = webglTexture();
 
             if (t) {
                 setTargetBuffer(framebufferU8RGBA, t);
@@ -2783,7 +3165,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
                 setTargetBuffer(null, null);
             }
 
-            var uniLocations = prog.uniLocations;
+            let uniLocations = prog.uniLocations;
 
             state.useProgram(prog.program);
             gl.bindVertexArray(prog.vao);
@@ -2826,9 +3208,9 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         diffuse(name) {
-            var prog = programs["diffusePatch"];
-            var src = this[name];
-            var dst = this[N + name];
+            let prog = programs["diffusePatch"];
+            let src = this[name];
+            let dst = this[N + name];
 
             setTargetBuffer(framebufferDiffuse, dst);
 
@@ -2836,7 +3218,7 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
                 console.log("incomplete framebuffer");
             }
 
-            var uniLocations = prog.uniLocations;
+            let uniLocations = prog.uniLocations;
 
             state.useProgram(prog.program);
             gl.bindVertexArray(prog.vao);
@@ -2845,13 +3227,13 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
 
             state.activeTexture(gl.TEXTURE0);
             state.bindTexture(gl.TEXTURE_2D, src);
-            gl.uniform1i(prog.uniLocations["u_value"], 0);
+            gl.uniform1i(uniLocations["u_value"], 0);
 
             if (!withThreeJS) {
                 gl.viewport(0, 0, FW, FH);
             }
 
-            gl.uniform2f(prog.uniLocations["u_half"], 0.5/FW, 0.5/FH);
+            gl.uniform2f(uniLocations["u_half"], 0.5/FW, 0.5/FH);
 
             gl.drawArrays(gl.POINTS, 0, FW * FH);
             gl.flush();
@@ -2864,270 +3246,12 @@ function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, optDOMT
         }
 
         readValues(n, x, y, w, h) {
-            var val = shadama.readValues(this, n, x, y, w, h);
+            let val = shadama.readValues(this, n, x, y, w, h);
             return new ShadamaEvent().setValue(val);
         }
     }
 
-    Shadama.prototype.cleanUpEditorState = function() {
-        if (editor) {
-            if (editorType == "CodeMirror") {
-                if (parseErrorWidget) {
-                    editor.removeLineWidget(parseErrorWidget);
-                    parseErrorWidget = undefined;
-                }
-                editor.getAllMarks().forEach(function(mark) { mark.clear(); });
-            }
-            if (editorType == "Carota") {
-                if (parseErrorWidget) {
-                    parseErrorWidget.visible(false);
-                }
-            }
-        }
-    }
-
-    var showError;
-
-    Shadama.prototype.reportError = function(error) {
-        function toDOM(x) {
-            if (x instanceof Array) {
-                var xNode = document.createElement(x[0]);
-                x.slice(1)
-                    .map(toDOM)
-                    .forEach(yNode => xNode.appendChild(yNode));
-                return xNode;
-            } else {
-                return document.createTextNode(x);
-            }
-        };
-
-        if (editor) {
-            if (editorType == "CodeMirror") {
-                if (error.message != "runtime error") {
-                    setTimeout(
-                        function() {
-                            var msg = error.expected;
-                            var pos = error.pos;
-                            var src = error.src;
-                            if ((!src || editor.getValue() === src) && !parseErrorWidget) {
-                                function repeat(x, n) {
-                                    var xs = [];
-                                    while (n-- > 0) {
-                                        xs.push(x);
-                                    }
-                                    return xs.join('');
-                                }
-                                var docPos = editor.doc.posFromIndex(pos);
-                                var widget = toDOM(['parseerror', repeat(' ', docPos.ch) + '^\n' + msg]);
-                                if (pos && msg) {
-                                    console.log(pos, msg);
-                                } else {
-                                    console.log(error);
-                                }
-                                parseErrorWidget = editor.addLineWidget(docPos.line, widget);
-                            }
-                        },
-                        2500
-                    );
-                } else {
-                    for (var n in this.steppers) {
-                        this.stopScript(n);
-                    }
-                    alert(error.expected);
-                }
-            }
-            if (editorType == "Carota") {
-                var scale = 8; // need to compute it
-                var bounds2D = editor.editor.byOrdinal(error.pos).bounds();
-                var x = (bounds2D.r - (editor.width / 2)) / scale;
-                var y = (editor.height - bounds2D.b - editor.height / 2) / scale;
-                var vec = new THREE.Vector3(x, y, 0);
-                var orig = vec.clone();
-                editor.parent.localToWorld(vec);
-
-                var msg = 'Expected: ' + error.msg;
-
-                if (!parseErrorWidget) {
-                    parseErrorWidget =
-                        new TStickyNote(frame.tAvatar,
-                            function(tObj){
-                                //tObj.position.set(5, -2, -2);
-                                //tObj.setLaser();
-                                showError(tObj, msg, vec);}, 512, 256);
-                    frame.sticky = parseErrorWidget;
-                    parseErrorWidget.scale.set(0.05, 0.05, 0.05);
-                } else {
-                    showError(parseErrorWidget, msg, vec);
-                }
-            }
-        } else {
-            var msg = error.expected;
-            var pos = error.pos;
-            var src = error.src;
-            if (pos && msg) {
-                console.log(pos, msg);
-            } else {
-                console.log(error);
-            }
-        }
-    }
-
-    Shadama.prototype.setShowError = function(func) {
-        showError = func;
-    }
-
-    showError = function(obj, m, v) {
-        obj.visible(true);
-
-        frame.mylaser = obj.laserBeam;
-        frame.tAvatar.addChild(obj);
-        obj.position.set(30, 10, -40);
-        obj.quaternion.set(0,0,0,1);
-
-        var canvas = obj.material.map.image;
-        var ctx = canvas.getContext("2d");
-        ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.font = "60px Arial";
-        ctx.fillStyle = "blue";
-        ctx.fillText(m, 5, 20);
-        obj.material.map.needsUpdate = true;
-        obj.release();
-
-        obj.track(v);
-    }
-
-    Shadama.prototype.step = function() {
-        this.env["time"] = (window.performance.now() / 1000) - this.loadTime;
-        for (var k in this.triggers) {
-            this.triggers[k].maybeFire(this);
-        }
-        try {
-            for (var k in this.steppers) {
-                var func = this.statics[k];
-                if (func) {
-                    func(this.env);
-                }
-            }
-        } catch(e) {
-            this.reportError(e);
-        }
-    }
-
-    Shadama.prototype.maybeRunner = function(optFunc) {
-        if (!animationRequested) {
-            this.runner(optFunc);
-        }
-    }
-
-    Shadama.prototype.runner = function(optFunc) {
-        var that = this;
-        this.stopped = false
-
-        function runBody() {
-            if (that.stopped) return 
-            if (domTools) {
-                animationRequested = false;
-                var start = performance.now();
-                that.step();
-                var now = performance.now();
-                times.push({start: start, step: now - start});
-                
-                if ((times.length > 0 && now - times[0].start > 1000) || times.length === 2) {
-                    while (times.length > 1 && now - times[0].start > 500) { times.shift() };
-                    var frameTime = (times[times.length-1].start - times[0].start) / (times.length - 1);
-                    var stepTime = times.reduce((a, b) => ({step: a.step + b.step})).step / times.length;
-                    readout.innerHTML = "" + frameTime.toFixed(1) + " msecs/frame (" + (1000 / frameTime).toFixed(1) + " fps)";
-                    // console.log("[shadama] " + readout.innerHTML)  
-                    that.updateEnv();
-                }
-                
-                that.updateClocks();
-
-                if (optFunc) {
-                    optFunc();
-                }
-                if (keepGoing) {
-                    window.requestAnimationFrame(runBody);
-                    animationRequested = true;
-                } else {
-                    keepGoing = true;
-                }
-            }
-        };
-        runBody();
-    }
-
-    Shadama.prototype.destroy = function() {
-        if (editorType == "Carota") {
-            if (parseErrorWidget) {
-                parseErrorWidget.removeSelf();
-            }
-        }
-        //
-    }
-
-    Shadama.prototype.pause = function() {
-        this.steppers = {};
-    }
-
-    Shadama.prototype.pointermove = function(x, y) {
-        this.env.mousemove = {x: x, y: y};
-    }
-
-    Shadama.prototype.pointerup = function(x, y) {
-        this.env.mouseup = {x: x, y: y};
-    }
-
-    Shadama.prototype.pointerdown = function(x, y) {
-        this.env.mousedown = {x: x, y: y}
-    }
-
-    Shadama.prototype.tester = function() {
-        return {
-            parse: parse,
-            update: update,
-            translate: translate,
-            s: s,
-            Breed: Breed,
-            Patch: Patch,
-            SymTable: SymTable,
-        }
-    }
-
-    Shadama.prototype.goFullScreen = function() {
-
-        var req = shadamaCanvas.requestFullscreen || shadamaCanvas.webkitRequestFullscreen ||
-            shadamaCanvas.mozRequestFullScreen || shadamaCanvas.msRequestFullscreen;
-
-        if (req) {
-            req.call(shadamaCanvas);
-
-            function fsChanged() {
-                if (document.fullscreenElement ||
-                        document.webkitFullscreenElement ||
-                        document.mozFullScreenElement ||
-                        document.msFullscreenElement) {
-                    var rx = window.innerWidth / FW;
-                    var ry = window.innerHeight / FH;
-                    fullScreenScale = Math.min(rx, ry);
-                    shadamaCanvas.style.width = FW * fullScreenScale + 'px';
-                    shadamaCanvas.style.height = FH * fullScreenScale + 'px';
-                } else {
-                    fullScreenScale = 1.0;
-                    shadamaCanvas.style.width = FW + 'px';
-                    shadamaCanvas.style.height = FH + 'px';
-                }
-            };
-
-            document.addEventListener("fullscreenchange", fsChanged);
-            document.addEventListener("webkitfullscreenchange", fsChanged);
-            document.addEventListener("mozfullscreenchange", fsChanged);
-            document.addEventListener("MSFullscreenChange", fsChanged);
-        }
-    }
-
-    var shadamaGrammar = String.raw`
+    let shadamaGrammar = String.raw`
 Shadama {
   TopLevel
     = ProgramDecl? (Breed | Patch | Event | On | Data | Script | Helper | Static)*
@@ -3274,15 +3398,15 @@ Shadama {
 }
 `;
 
-    var g;
-    var s;
+    let g;
+    let s;
 
-    var globalTable; // This is a bad idea but then I don't know how to keep the reference to global.
+    let globalTable; // This is a bad idea but then I don't know how to keep the reference to global.
 
-    var primitives;
+    let primitives;
 
     function initPrimitiveTable() {
-        var data = {
+        let data = {
             "clear": new SymTable([], true),
             "setCount": new SymTable([
                 ["param", null, "num"]], true),
@@ -3331,6 +3455,8 @@ Shadama {
                 ["param", null, "video"]], true),
             "diffuse": new SymTable([
                 ["param", null, "name"]], true),
+            "setPointSize": new SymTable([
+                ["param", null, "size"]], true),
             "increasePatch": new SymTable([
                 ["param", null, "name"],
                 ["param", null, "patch"],
@@ -3347,19 +3473,29 @@ Shadama {
                 ["param", null, "name"]], true),
             "loadData": new SymTable([
                 ["param", null, "data"]], true),
+            "setClearColor": new SymTable([
+                ["param", null, "r"],
+                ["param", null, "g"],
+                ["param", null, "b"],
+                ["param", null, "a"]], true),
             "readValues": new SymTable([
                 ["param", null, "name"],
                 ["param", null, "x"],
                 ["param", null, "y"],
                 ["param", null, "w"],
                 ["param", null, "h"]], true),
+            "croquetPublish": new SymTable([
+                ["param", null, "name"],
+                ["param", null, "v1"],
+                ["param", null, "v2"]], true),
+            "debugger": new SymTable([], true),
             "start": new SymTable([], true),
             "step": new SymTable([], true),
             "stop": new SymTable([], true),
         };
 
         primitives = {};
-        for (var k in data) {
+        for (let k in data) {
             primitives[k] = data[k];
         }
     }
@@ -3373,7 +3509,7 @@ Shadama {
 
     function initSemantics() {
         function addDefaults(obj) {
-            for (var k in primitives) {
+            for (let k in primitives) {
                 obj[k] = primitives[k];
             }
 
@@ -3384,27 +3520,27 @@ Shadama {
         }
 
         function processHelper(symDict) {
-            var queue;   // = [name]
-            var result;  // = {<name>: <name>}
+            let queue;   // = [name]
+            let result;  // = {<name>: <name>}
             function traverse() {
-                var head = queue.shift();
+                let head = queue.shift();
                 if (!result[head]) {
                     result.add(head, head);
-                    var d = symDict[head];
-                    if (d && d.type == "helper") {
-                        d.usedHelpersAndPrimitives.keysAndValuesDo((h, v) => {
+                    let d = symDict[head];
+                    if (d && d.type === "helper") {
+                        d.usedHelpersAndPrimitives.keysAndValuesDo((h, _v) => {
                             queue.push(h);
                         });
                     }
                 }
             }
 
-            for (var k in symDict) {
-                var dict = symDict[k];
-                if (dict.type == "method") {
+            for (let k in symDict) {
+                let dict = symDict[k];
+                if (dict.type === "method") {
                     queue = [];
                     result = new OrderedPair();
-                    dict.usedHelpersAndPrimitives.keysAndValuesDo((i, v) => {
+                    dict.usedHelpersAndPrimitives.keysAndValuesDo((i, _v) => {
                         queue.push(i);
                     });
                     while (queue.length > 0) {
@@ -3419,18 +3555,18 @@ Shadama {
             "symTable(table)",
             {
                 TopLevel(p, ds) {
-                    var result = {};
+                    let result = {};
                     addDefaults(result);
                     if (p.children.length > 0) {
                         result = addAsSet(result, p.children[0].symTable(null));
                     }
-                    for (var i = 0; i< ds.children.length; i++) {
-                        var d = ds.children[i].symTable(null);
-                        var ctor = ds.children[i].ctorName;
-                        if (ctor == "Script" || ctor == "Static" || ctor == "Helper") {
+                    for (let i = 0; i< ds.children.length; i++) {
+                        let d = ds.children[i].symTable(null);
+                        let ctor = ds.children[i].ctorName;
+                        if (ctor === "Script" || ctor === "Static" || ctor === "Helper") {
                             addAsSet(result, d);
                         }
-                        if (ctor == "On" || ctor == "Event" || ctor == "Data") {
+                        if (ctor === "On" || ctor === "Event" || ctor === "Data") {
                             addAsSet(result, d);
                         }
                     }
@@ -3439,35 +3575,36 @@ Shadama {
                     return result;
                 },
 
-                ProgramDecl(_p, s) {
-                    return {_programName: s.sourceString.slice(1, s.sourceString.length - 1)}
+                ProgramDecl(_p, name) {
+                    return {_programName: name.sourceString.slice(1, name.sourceString.length - 1)};
                 },
 
                 Breed(_b, n, _o, fs, _c) {
-                    var table = new SymTable();
+                    let table = new SymTable();
                     fs.symTable(table);
                     table.process();
                     return {[n.sourceString]: table};
                 },
 
                 Patch(_p, n, _o, fs, _c) {
-                    var table = new SymTable();
+                    let table = new SymTable();
                     fs.symTable(table);
                     table.process();
                     return {[n.sourceString]: table};
                 },
 
                 Event(_e, n) {
-                    var table = new SymTable();
+                    let table = new SymTable();
                     table.beEvent(n.sourceString);
                     return {[n.sourceString]: table};
                 },
 
                 On(_o, t, _a, optK, n) {
-                    var table = new SymTable();
-                    var trigger = t.trigger();
+                    let table = new SymTable();
+                    let trigger = t.trigger();
+                    let k;
                     if (optK.children.length > 0) {
-                        var k = optK.children[0].sourceString;
+                        k = optK.children[0].sourceString;
                     } else {
                         k = "step";
                     }
@@ -3476,15 +3613,15 @@ Shadama {
                 },
 
                 Data(_d, n, _o, s1, _a, s2, _c) {
-                    var table = new SymTable();
-                    var realS1 = s1.children[1].sourceString;
-                    var realS2 = s2.children[1].sourceString;
+                    let table = new SymTable();
+                    let realS1 = s1.children[1].sourceString;
+                    let realS2 = s2.children[1].sourceString;
                     table.beData(n.sourceString, realS1, realS2);
                     return {[n.sourceString]: table};
                 },
 
                 Script(_d, n, _o, ns, _c, b) {
-                    var table = new SymTable();
+                    let table = new SymTable();
                     ns.symTable(table);
                     b.symTable(table);
                     table.process();
@@ -3492,15 +3629,15 @@ Shadama {
                 },
 
                 Helper(_d, n, _o, ns, _c, b) {
-                    var table = new SymTable();
+                    let table = new SymTable();
                     ns.symTable(table);
                     b.symTable(table);
                     table.beHelper();
                     return {[n.sourceString]: table};
                 },
 
-                Static(_s, n, _o, ns, _c, b) {
-                    var table = new SymTable();
+                Static(_s, n, _o, ns, _c, _b) {
+                    let table = new SymTable();
                     ns.symTable(table);
                     table.process();
                     table.beStatic();
@@ -3508,25 +3645,25 @@ Shadama {
                 },
 
                 Formals_list(h, _c, r) {
-                    var table = this.args.table;
+                    let table = this.args.table;
                     table.add("param", null, h.sourceString);
-                    for (var i = 0; i < r.children.length; i++) {
-                        var n = r.children[i].sourceString;
+                    for (let i = 0; i < r.children.length; i++) {
+                        let n = r.children[i].sourceString;
                         table.add("param", null, n);
                     }
                     return table;
                 },
 
                 StatementList(ss) { // an iter node
-                    var table = this.args.table;
-                    for (var i = 0; i< ss.children.length; i++) {
+                    let table = this.args.table;
+                    for (let i = 0; i< ss.children.length; i++) {
                         ss.children[i].symTable(table);
                     }
                     return table;
                 },
 
                 VariableDeclaration(n, optI) {
-                    var table = this.args.table;
+                    let table = this.args.table;
                     table.add("var", null, n.sourceString);
                     if (optI.children.length > 0) {
                         optI.children[0].symTable(table);
@@ -3535,7 +3672,7 @@ Shadama {
                 },
 
                 IfStatement(_if, _o, c, _c, t, _e, optF) {
-                    var table = this.args.table;
+                    let table = this.args.table;
                     c.symTable(table);
                     t.symTable(table);
                     if (optF.children.length > 0) {
@@ -3545,10 +3682,10 @@ Shadama {
                 },
 
                 LeftHandSideExpression_field(n, _a, f) {
-                    var name = n.sourceString;
-                    var table = this.args.table;
+                    let name = n.sourceString;
+                    let table = this.args.table;
                     if (!table.hasVariable(name)) {
-                        var error = new Error("syntax error");
+                        let error = new Error("syntax error");
                         error.reason = `variable ${name} is not declared`;
                         error.expected = `variable ${name} is not declared`;
                         error.pos = n.source.endIdx;
@@ -3561,16 +3698,16 @@ Shadama {
                 },
 
                 PrimExpression_field(n, _p, f) {
-                    var table = this.args.table;
+                    let table = this.args.table;
                     if (!(n.ctorName === "PrimExpression" && (n.children[0].ctorName === "PrimExpression_variable"))) {
                         console.log("you can only use 'this' or incoming patch name");
                     }
-                    var name = n.sourceString;
+                    let name = n.sourceString;
                     if (!table.isBuiltin(name)) {
                         table.add("propIn", n.sourceString, f.sourceString);
                     }
                     if (!table.hasVariable(name)) {
-                        var error = new Error("syntax error");
+                        let error = new Error("syntax error");
                         error.reason = `variable ${name} is not declared`;
                         error.expected = `variable ${name} is not declared`;
                         error.pos = n.source.endIdx;
@@ -3580,7 +3717,7 @@ Shadama {
                     return table;
                 },
 
-                PrimExpression_variable(n) {
+                PrimExpression_variable(_n) {
                     return {};//["var." + n.sourceString]: ["var", null, n.sourceString]};
                 },
 
@@ -3590,20 +3727,20 @@ Shadama {
                 },
 
                 Actuals_list(h, _c, r) {
-                    var table = this.args.table;
+                    let table = this.args.table;
                     h.symTable(table);
-                    for (var i = 0; i < r.children.length; i++) {
+                    for (let i = 0; i < r.children.length; i++) {
                         r.children[i].symTable(table);
                     }
                     return table;
                 },
 
                 ident(_h, _r) {return this.args.table;},
-                number(s) {return this.args.table;},
+                number(_s) {return this.args.table;},
                 _terminal() {return this.args.table;},
                 _nonterminal(children) {
-                    var table = this.args.table;
-                    for (var i = 0; i < children.length; i++) {
+                    let table = this.args.table;
+                    for (let i = 0; i < children.length; i++) {
                         children[i].symTable(table);
                     }
                     return table;
@@ -3611,15 +3748,15 @@ Shadama {
             });
 
         function transBinOp(l, r, op, args) {
-            var table = args.table;
-            var vert = args.vert;
-            var frag = args.frag;
+            let table = args.table;
+            let vert = args.vert;
+            let frag = args.frag;
             vert.push("(");
             l.glsl(table, vert, frag);
             vert.push(op);
             r.glsl(table, vert, frag);
             vert.push(")");
-        };
+        }
 
         s.addOperation(
             "trigger",
@@ -3635,7 +3772,7 @@ Shadama {
                 }
             }
         );
-        
+
         s.addOperation(
             "glsl_script_formals",
             {
@@ -3651,8 +3788,8 @@ Shadama {
             "glsl_helper(table, vert)",
             {
                 Helper(_d, n, _o, ns, _c, b) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
 
                     vert.push("float " + n.sourceString);
                     vert.push("(");
@@ -3661,27 +3798,26 @@ Shadama {
                     b.glsl_helper(table, vert);
 
                     vert.crIfNeeded();
-                    var code = vert.contents();
+                    let code = vert.contents();
                     table.helperCode = code;
 
                     return {[n.sourceString]: [table, code, "", ["updateHelper", n.sourceString]]};
                 },
 
                 Formals_list(h, _c, r) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let vert = this.args.vert;
 
                     vert.push("float " + h.sourceString);
-                    for (var i = 0; i < r.children.length; i++) {
-                        var c = r.children[i];
+                    for (let i = 0; i < r.children.length; i++) {
+                        let c = r.children[i];
                         vert.push(", float ");
                         vert.push(c.sourceString);
                     }
                 },
 
                 Block(_o, ss, _c) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
 
                     vert.pushWithSpace("{\n");
                     vert.addTab();
@@ -3694,30 +3830,30 @@ Shadama {
                 },
 
                 StatementList(ss) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    for (var i = 0; i < ss.children.length; i++) {
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    for (let i = 0; i < ss.children.length; i++) {
                         vert.tab();
                         ss.children[i].glsl_helper(table, vert);
                     }
                 },
 
                 Statement(e) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
                     e.glsl_helper(table, vert);
                     if (e.ctorName !== "Block" && e.ctorName !== "IfStatement") {
                         vert.push(";");
                         vert.cr();
                     }
-                    if (e.ctorName == "IfStatement") {
+                    if (e.ctorName === "IfStatement") {
                         vert.cr();
                     }
                 },
 
                 IfStatement(_i, _o, c, _c, t, _e, optF) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
                     vert.pushWithSpace("if");
                     vert.pushWithSpace("(");
                     c.glsl_helper(table, vert);
@@ -3728,10 +3864,9 @@ Shadama {
                     optF.glsl_helper(table, vert);
                 },
 
-
                 ReturnStatement(_r, e, _s) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
 
                     vert.pushWithSpace("return");
                     vert.push(" ");
@@ -3739,22 +3874,22 @@ Shadama {
                 },
 
                 AssignmentStatement(l, _a, e, _) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
                     l.glsl_helper(table, vert);
                     vert.push(" = ");
                     e.glsl_helper(table, vert);
                 },
 
                 VariableStatement(_v, d, _s) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
                     d.glsl_helper(table, vert);
                 },
 
                 VariableDeclaration(n, i) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
                     vert.push("float");
                     vert.pushWithSpace(n.sourceString);
                     if (i.children.length !== 0) {
@@ -3767,15 +3902,14 @@ Shadama {
                     e.glsl_helper(this.args.table, this.args.vert);
                 },
 
-                LeftHandSideExpression_field(n, _p, f) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                LeftHandSideExpression_field(n, _p, _f) {
+                    let vert = this.args.vert;
                     vert.push(n.sourceString);
                 },
 
                 ExpressionStatement(e ,_s) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
                     e.glsl_helper(table, vert);
                 },
 
@@ -3860,15 +3994,15 @@ Shadama {
                 },
 
                 UnaryExpression_minus(_p, e) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
                     vert.pushWithSpace("-");
                     e.glsl_helper(table, vert);
                 },
 
                 UnaryExpression_not(_p, e) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
                     vert.pushWithSpace("!");
                     e.glsl_helper(table, vert);
                 },
@@ -3882,8 +4016,8 @@ Shadama {
                 },
 
                 PrimExpression_number(e) {
-                    var vert = this.args.vert;
-                    var ind = e.sourceString.indexOf(".");
+                    let vert = this.args.vert;
+                    let ind = e.sourceString.indexOf(".");
                     if (ind < 0) {
                         vert.push(e.sourceString + ".0");
                     } else {
@@ -3892,13 +4026,13 @@ Shadama {
                 },
 
                 PrimExpression_field(n, _p, f) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
 
                     if (table.isObject(n.sourceString)) {
                         vert.push(n.sourceString + "." + f.sourceString);
                     } else {
-                        throw "error";
+                        throw new Error("error");
                     }
                 },
 
@@ -3907,8 +4041,8 @@ Shadama {
                 },
 
                 PrimitiveCall(n, _o, as, _c) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
                     vert.push(n.sourceString);
                     vert.push("(");
                     as.glsl_helper(table, vert);
@@ -3916,16 +4050,16 @@ Shadama {
                 },
 
                 Actuals_list(h, _c, r) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
                     h.glsl_helper(table, vert);
-                    for (var i = 0; i < r.children.length; i++) {
+                    for (let i = 0; i < r.children.length; i++) {
                         vert.push(", ");
                         r.children[i].glsl_helper(table, vert);
                     }
                 },
 
-                ident(n, rest) {
+                ident(_n, _rest) {
                     // ??
                     this.args.vert.push(this.sourceString);
                 },
@@ -3935,17 +4069,17 @@ Shadama {
             "glsl_inner(table, vert, frag)",
             {
                 Block(_o, ss, _c) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
 
-                    var patchInput = `
+                    let patchInput = `
   float _x = texelFetch(u_that_x, ivec2(a_index), 0).r;
   float _y = texelFetch(u_that_y, ivec2(a_index), 0).r;
   vec2 _pos = vec2(_x, _y);
 `;
 
-                    var voxelInput = `
+                    let voxelInput = `
   float _x = texelFetch(u_that_x, ivec2(a_index), 0).r;
   float _y = texelFetch(u_that_y, ivec2(a_index), 0).r;
   float _z = texelFetch(u_that_z, ivec2(a_index), 0).r;
@@ -3957,19 +4091,19 @@ Shadama {
   vec2 _pos = vec2(index % int(u_resolution.x), index / int(u_resolution.x));
 `;
 
-                    var patchPrologue = `
+                    let patchPrologue = `
   vec2 oneToOne = ((_pos / u_resolution) + u_half) * 2.0 - 1.0;
 `;
 
-                    var breedPrologue = `
+                    let breedPrologue = `
   vec2 oneToOne = (b_index + u_half) * 2.0 - 1.0;
 `;
 
-                    var voxelPrologue = `
+                    let voxelPrologue = `
   vec2 oneToOne = ((_pos / u_resolution.xy) + u_half) * 2.0 - 1.0;
 `;
 
-                    var epilogue = `
+                    let epilogue = `
   gl_Position = vec4(oneToOne, 0.0, 1.0);
   gl_PointSize = 1.0;
 `;
@@ -3978,7 +4112,7 @@ Shadama {
                     vert.addTab();
 
                     if ((table.hasPatchInput || !table.forBreed)) {
-                        if (dimension == 2) {
+                        if (dimension === 2) {
                             vert.push(patchInput);
                         } else {
                             vert.push(voxelInput);
@@ -3988,7 +4122,7 @@ Shadama {
                     if (table.forBreed) {
                         vert.push(breedPrologue);
                     } else {
-                        if (dimension == 2) {
+                        if (dimension === 2) {
                             vert.push(patchPrologue);
                         } else {
                             vert.push(voxelPrologue);
@@ -3996,8 +4130,8 @@ Shadama {
                     }
 
                     table.scalarParamTable.keysAndValuesDo((key, entry) => {
-                        var e = entry[2];
-                        var template1 = `float ${e} = u_scalar_${e};`;
+                        let e = entry[2];
+                        let template1 = `float ${e} = u_scalar_${e};`;
                         vert.tab();
                         vert.push(template1);
                         vert.cr();
@@ -4014,16 +4148,16 @@ Shadama {
 
                     vert.decTab();
                     vert.tab();
-                    vert.push("}");
+                    vert
+                        .push("}");
                 },
 
                 Script(_d, n, _o, ns, _c, b) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
 
-                    var breedPrologue =
-`#version 300 es
+                    let breedPrologue = `#version 300 es
 precision highp float;
 layout (location = 0) in vec2 a_index;
 layout (location = 1) in vec2 b_index;
@@ -4031,19 +4165,19 @@ uniform vec${dimension} u_resolution;
 uniform vec2 u_half;
 `;
 
-                    if (dimension == 3) {
-                        breedPrologue = breedPrologue + `uniform float v_step;
+                    if (dimension === 3) {
+                        breedPrologue += `uniform float v_step;
 uniform vec3 v_resolution;
 `;
                     }
 
-                    var patchPrologue = breedPrologue + `
+                    let patchPrologue = breedPrologue + `
 uniform sampler2D u_that_x;
 uniform sampler2D u_that_y;
 `;
 
-                    if (dimension == 3) {
-                        patchPrologue = patchPrologue + `uniform sampler2D u_that_z;
+                    if (dimension === 3) {
+                        patchPrologue += `uniform sampler2D u_that_z;
 `;
                     }
 
@@ -4066,9 +4200,7 @@ uniform sampler2D u_that_y;
 
                     vert.crIfNeeded();
 
-                    table.primitivesAndHelpers().forEach((n) => {
-                        vert.push(n);
-                    });
+                    table.primitivesAndHelpers().forEach((p) => vert.push(p));
 
                     vert.push("void main()");
 
@@ -4116,16 +4248,16 @@ uniform sampler2D u_that_y;
             "glsl(table, vert, frag)",
             {
                 TopLevel(p, ds) {
-                    var table = this.args.table;
-                    var result = {};
-                    for (var i = 0; i < ds.children.length; i++) {
-                        var child = ds.children[i];
-                        if (child.ctorName == "Static") {
-                            var js = new CodeStream();
-                            var val = child.static(table, js, null, false);
+                    let table = this.args.table;
+                    let result = {};
+                    for (let i = 0; i < ds.children.length; i++) {
+                        let child = ds.children[i];
+                        if (child.ctorName === "Static") {
+                            let js = new CodeStream();
+                            let val = child.static(table, js, null, false);
                             addAsSet(result, val);
                         } else {
-                            var val = child.glsl(table, null, null);
+                            let val = child.glsl(table, null, null);
                             addAsSet(result, val);
                         }
                     }
@@ -4134,63 +4266,63 @@ uniform sampler2D u_that_y;
                 },
 
                 Breed(_b, n, _o, fs, _c) {
-                    var table = this.args.table;
-                    var js = ["updateBreed", n.sourceString, fs.glsl_script_formals()];
+                    let table = this.args.table;
+                    let js = ["updateBreed", n.sourceString, fs.glsl_script_formals()];
                     return {[n.sourceString]: [table[n.sourceString], "", "", js]};
                 },
 
                 Patch(_p, n, _o, fs, _c) {
-                    var table = this.args.table;
-                    var js = ["updatePatch", n.sourceString, fs.glsl_script_formals()];
+                    let table = this.args.table;
+                    let js = ["updatePatch", n.sourceString, fs.glsl_script_formals()];
                     return {[n.sourceString]: [table[n.sourceString], "", "" ,js]};
                 },
 
                 Event(_e, n) {
-                    var table = this.args.table;
-                    var js = ["event", n.sourceString];
+                    let table = this.args.table;
+                    let js = ["event", n.sourceString];
                     return {[n.sourceString]: [table[n.sourceString], "", "", js]};
                 },
 
-                On(_o, t, _a, optK, k) {
-                    var table = this.args.table;
-                    var trigger = t.trigger();
-                    var key = "_trigger" + trigger.toString();
-                    var entry = table[key];
-                    var js = ["trigger", entry.trigger, entry.triggerAction];
+                On(_o, t, _a, _optK, _k) {
+                    let table = this.args.table;
+                    let trigger = t.trigger();
+                    let key = "_trigger" + trigger.toString();
+                    let entry = table[key];
+                    let js = ["trigger", entry.trigger, entry.triggerAction];
                     return {[key]: [table[key], "", "", js]};
                 },
 
                 Data(_d, i, _o, s1, _a, s2, _c) {
-                    var table = this.args.table;
-                    var key = i.sourceString;
-                    var entry = table[key];
-                    var realS1 = s1.children[1].sourceString;
-                    var realS2 = s2.children[1].sourceString;
-                    var js = ["data", i.sourceString, realS1, realS2];
+                    let table = this.args.table;
+                    let key = i.sourceString;
+                    let entry = table[key];
+                    let realS1 = s1.children[1].sourceString;
+                    let realS2 = s2.children[1].sourceString;
+                    let js = ["data", i.sourceString, realS1, realS2];
                     return {[key]: [entry, "", "", js]};
                 },
 
-                Script(_d, n, _o, ns, _c, b) {
-                    var inTable = this.args.table;
-                    var table = inTable[n.sourceString];
-                    var vert = new CodeStream();
-                    var frag = new CodeStream();
+                Script(_d, n, _o, _ns, _c, _b) {
+                    let inTable = this.args.table;
+                    let table = inTable[n.sourceString];
+                    let vert = new CodeStream();
+                    let frag = new CodeStream();
 
                     return this.glsl_inner(table, vert, frag);
                 },
 
-                Helper(_d, n, _o, ns, _c, b) {
-                    var inTable = this.args.table;
-                    var table = inTable[n.sourceString];
-                    var vert = new CodeStream();
+                Helper(_d, n, _o, _ns, _c, _b) {
+                    let inTable = this.args.table;
+                    let table = inTable[n.sourceString];
+                    let vert = new CodeStream();
 
                     return this.glsl_helper(table, vert);
                 },
 
                 Block(_o, ss, _c) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
 
                     vert.pushWithSpace("{");
                     vert.cr();
@@ -4202,33 +4334,33 @@ uniform sampler2D u_that_y;
                 },
 
                 StatementList(ss) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
-                    for (var i = 0; i < ss.children.length; i++) {
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
+                    for (let i = 0; i < ss.children.length; i++) {
                         vert.tab();
                         ss.children[i].glsl(table, vert, frag);
                     }
                 },
 
                 Statement(e) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
                     e.glsl(table, vert, frag);
                     if (e.ctorName !== "Block" && e.ctorName !== "IfStatement") {
                         vert.push(";");
                         vert.cr();
                     }
-                    if (e.ctorName == "IfStatement") {
+                    if (e.ctorName === "IfStatement") {
                         vert.cr();
                     }
                 },
 
                 IfStatement(_i, _o, c, _c, t, _e, optF) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
                     vert.pushWithSpace("if");
                     vert.pushWithSpace("(");
                     c.glsl(table, vert, frag);
@@ -4240,25 +4372,25 @@ uniform sampler2D u_that_y;
                 },
 
                 AssignmentStatement(l, _a, e, _) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
                     l.glsl(table, vert, frag);
                     vert.push(" = ");
                     e.glsl(table, vert, frag);
                 },
 
                 VariableStatement(_v, d, _s) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
                     d.glsl(table, vert, frag);
                 },
 
                 VariableDeclaration(n, i) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
                     vert.push("float");
                     vert.pushWithSpace(n.sourceString);
                     if (i.children.length !== 0) {
@@ -4272,15 +4404,15 @@ uniform sampler2D u_that_y;
                 },
 
                 LeftHandSideExpression_field(n, _p, f) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
                     vert.push(table.varying(["propOut", n.sourceString, f.sourceString]));
                 },
 
                 ExpressionStatement(e ,_s) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
                     e.glsl(table, vert, frag);
                 },
 
@@ -4365,17 +4497,17 @@ uniform sampler2D u_that_y;
                 },
 
                 UnaryExpression_minus(_p, e) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
                     vert.pushWithSpace("-");
                     e.glsl(table, vert, frag);
                 },
 
                 UnaryExpression_not(_p, e) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
                     vert.pushWithSpace("!");
                     e.glsl(table, vert, frag);
                 },
@@ -4389,8 +4521,8 @@ uniform sampler2D u_that_y;
                 },
 
                 PrimExpression_number(e) {
-                    var vert = this.args.vert;
-                    var ind = e.sourceString.indexOf(".");
+                    let vert = this.args.vert;
+                    let ind = e.sourceString.indexOf(".");
                     if (ind < 0) {
                         vert.push(e.sourceString + ".0");
                     } else {
@@ -4399,21 +4531,29 @@ uniform sampler2D u_that_y;
                 },
 
                 PrimExpression_field(n, _p, f) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    //let frag = this.args.frag;
 
                     if (table.isBuiltin(n.sourceString)) {
                         vert.push(n.sourceString + "." + f.sourceString);
                     } else {
                         if (n.sourceString === "this") {
-                            vert.push("texelFetch(" +
-                                      table.uniform(["propIn", n.sourceString, f.sourceString]) +
-                                      `, ivec2(a_index), 0).r`);
+                            let uni = table.uniform(["propIn", n.sourceString, f.sourceString]);
+                            let str = `texelFetch(${uni}, ivec2(a_index), 0).r`;
+                            vert.push(str);
+
+                            //vert.push("texelFetch(" +
+                            //table.uniform(["propIn", n.sourceString, f.sourceString]) +
+                            //`, ivec2(a_index), 0).r`);
                         } else {
-                            vert.push("texelFetch(" +
-                                      table.uniform(["propIn", n.sourceString, f.sourceString]) +
-                                      `, ivec2(_pos), 0).r`);
+                            let uni = table.uniform(["propIn", n.sourceString, f.sourceString]);
+                            let str = `texelFetch(${uni}, ivec2(_pos), 0).r`;
+                            vert.push(str);
+
+                            //vert.push("texelFetch(" +
+                            //table.uniform(["propIn", n.sourceString, f.sourceString]) +
+                            //`, ivec2(_pos), 0).r`);
                         }
                     }
                 },
@@ -4423,9 +4563,9 @@ uniform sampler2D u_that_y;
                 },
 
                 PrimitiveCall(n, _o, as, _c) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
                     vert.push(n.sourceString);
                     vert.push("(");
                     as.glsl(table, vert, frag);
@@ -4433,76 +4573,74 @@ uniform sampler2D u_that_y;
                 },
 
                 Actuals_list(h, _c, r) {
-                    var table = this.args.table;
-                    var vert = this.args.vert;
-                    var frag = this.args.frag;
+                    let table = this.args.table;
+                    let vert = this.args.vert;
+                    let frag = this.args.frag;
                     h.glsl(table, vert, frag);
-                    for (var i = 0; i < r.children.length; i++) {
+                    for (let i = 0; i < r.children.length; i++) {
                         vert.push(", ");
                         r.children[i].glsl(table, vert, frag);
                     }
                 },
 
-                ident(n, rest) {
+                ident(_n, _rest) {
                     this.args.vert.push(this.sourceString);
                 }
             });
 
         function staticTransBinOp(l, r, op, args) {
-            var table = args.table;
-            var js = args.js;
-            var method = args.method;
-            var isOther = args.isOther;
+            let table = args.table;
+            let js = args.js;
+            let method = args.method;
+            let isOther = args.isOther;
             js.push("(");
             l.static(table, js, method, isOther);
             js.push(op);
             r.static(table, js, method, isOther);
             js.push(")");
-        };
+        }
 
         s.addOperation(
             "static_method_inner(table, js, method, isOther)",
             {
                 Actuals_list(h, _c, r) {
-                    var table = this.args.table;
-                    var result = [];
-                    var js = new CodeStream();
-                    var method = this.args.method;
+                    let table = this.args.table;
+                    let result = [];
+                    let js = new CodeStream();
+                    let method = this.args.method;
 
                     function isOther(i) {
-                        var realTable = table[method];
-                        if (!realTable) {return false}
-                        var p = realTable.param.at(i);
+                        let realTable = table[method];
+                        if (!realTable) {return false;}
+                        let p = realTable.param.at(i);
                         if (!p) {
-                            var error = new Error("semantic error");
+                            let error = new Error("semantic error");
                             error.reason = `argument count does not match for method ${method}`;
                             error.expected = `argument count does not match for method ${method}`;
                             error.pos = h.source.endIdx;
                             error.src = null;
                             throw error;
                         }
-                        var r = realTable.usedAsOther(p[2]);
-                        return r;
-                    };
+                        return realTable.usedAsOther(p[2]);
+                    }
+
                     h.static(table, js, method, isOther(0));
                     result.push(js.contents());
-                    for (var i = 0; i < r.children.length; i++) {
-                        var c = r.children[i];
-                        var js = new CodeStream();
-                        c.static(table, js, method, isOther(i+1));
-                        result.push(js.contents());
+                    for (let i = 0; i < r.children.length; i++) {
+                        let c = r.children[i];
+                        let innerStream = new CodeStream();
+                        c.static(table, innerStream, method, isOther(i+1));
+                        result.push(innerStream.contents());
                     }
                     return result;
                 },
 
                 Formals_list(h, _c, r) {
-                    var table = this.args.table;
-                    var result = [];
-                    var js = new CodeStream();
+                    let result = [];
 
                     result.push(h.sourceString);
-                    for (var i = 0; i < r.children.length; i++) {
-                        var c = r.children[i];
+                    for (let i = 0; i < r.children.length; i++) {
+                        let c = r.children[i];
                         result.push(", ");
                         result.push(c.sourceString);
                     }
@@ -4519,10 +4657,19 @@ uniform sampler2D u_that_y;
             {
 
                 Static(_s, n, _o, fs, _c, b) {
-                    var table = this.args.table;
-                    var js = this.args.js;
-                    var method = this.args.method;
+                    let table = this.args.table;
+                    let js = this.args.js;
+                    let method = this.args.method;
 
+                    js.push("(");
+                    js.push("(");
+                    js.push(fs.static_method_inner(table, null, null, null));
+                    js.push(")");
+                    js.push(" => ");
+                    b.static(table, js, method, false);
+                    js.push(")");
+
+                    /*
                     js.push("(function");
                     js.pushWithSpace(n.sourceString);
                     js.push("(");
@@ -4530,13 +4677,14 @@ uniform sampler2D u_that_y;
                     js.push(") ");
                     b.static(table, js, method, false);
                     js.push(")");
+                    */
                     return {[n.sourceString]: ["static", js.contents(), this.sourceString]};
                 },
 
                 Block(_o, ss, _c) {
-                    var table = this.args.table;
-                    var js = this.args.js;
-                    var method = this.args.method;
+                    let table = this.args.table;
+                    let js = this.args.js;
+                    let method = this.args.method;
                     js.pushWithSpace("{");
                     js.cr();
                     js.addTab();
@@ -4547,36 +4695,36 @@ uniform sampler2D u_that_y;
                 },
 
                 StatementList(ss) {
-                    var table = this.args.table;
-                    var js = this.args.js;
-                    var method = this.args.method;
-                    var isOther = this.args.isOther;
-                    for (var i = 0; i < ss.children.length; i++) {
+                    let table = this.args.table;
+                    let js = this.args.js;
+                    let method = this.args.method;
+                    let isOther = this.args.isOther;
+                    for (let i = 0; i < ss.children.length; i++) {
                         js.tab();
                         ss.children[i].static(table, js, method, isOther);
                     }
                 },
 
                 Statement(e) {
-                    var table = this.args.table;
-                    var js = this.args.js;
-                    var method = this.args.method;
-                    var isOther = this.args.isOther;
+                    let table = this.args.table;
+                    let js = this.args.js;
+                    let method = this.args.method;
+                    let isOther = this.args.isOther;
                     e.static(table, js, method, isOther);
                     if (e.ctorName !== "Block" && e.ctorName !== "IfStatement") {
                         js.push(";");
                         js.cr();
                     }
-                    if (e.ctorName == "IfStatement") {
+                    if (e.ctorName === "IfStatement") {
                         js.cr();
                     }
                 },
 
                 IfStatement(_i, _o, c, _c, t, _e, optF) {
-                    var table = this.args.table;
-                    var js = this.args.js;
-                    var method = this.args.method;
-                    var isOther = this.args.isOther;
+                    let table = this.args.table;
+                    let js = this.args.js;
+                    let method = this.args.method;
+                    let isOther = this.args.isOther;
                     js.push("if");
                     js.pushWithSpace("(");
                     c.static(table, js, method, isOther);
@@ -4588,19 +4736,19 @@ uniform sampler2D u_that_y;
                 },
 
                 VariableStatement(_v, d, _s) {
-                    var table = this.args.table;
-                    var js = this.args.js;
-                    var method = this.args.method;
-                    var isOther = this.args.isOther;
+                    let table = this.args.table;
+                    let js = this.args.js;
+                    let method = this.args.method;
+                    let isOther = this.args.isOther;
                     d.static(table, js, method, isOther);
                 },
 
                 VariableDeclaration(n, i) {
-                    var table = this.args.table;
-                    var js = this.args.js;
-                    var method = this.args.method;
-                    var isOther = this.args.isOther;
-                    var symTable = new SymTable();
+                    let table = this.args.table;
+                    let js = this.args.js;
+                    let method = this.args.method;
+                    let isOther = this.args.isOther;
+                    let symTable = new SymTable();
                     symTable.beStaticVariable(i.sourceString);
                     table[n.sourceString] = symTable;
                     js.push("env.");
@@ -4614,13 +4762,13 @@ uniform sampler2D u_that_y;
                 },
 
                 AssignmentStatement(l, _a, e, _) {
-                    var table = this.args.table;
-                    var js = this.args.js;
-                    var method = this.args.method;
-                    var isOther = this.args.isOther;
-                    var left = table[l.sourceString];
+                    let table = this.args.table;
+                    let js = this.args.js;
+                    let method = this.args.method;
+                    let isOther = this.args.isOther;
+                    let left = table[l.sourceString];
                     if (!left || (!left.isEvent() && !left.isStaticVariable())) {
-//                            var error = new Error("semantic error");
+//                            let error = new Error("semantic error");
 //                            error.reason = `assignment into undeclared static variable or event ${l.sourceString}`;
 //                            error.expected = `assignment into undeclared static variable or event ${l.sourceString}`;
 //                            error.pos = l.source.endIdx;
@@ -4722,13 +4870,13 @@ uniform sampler2D u_that_y;
                 },
 
                 UnaryExpression_minus(_p, e) {
-                    var js = this.args.js;
+                    let js = this.args.js;
                     js.pushWithSpace("-");
                     e.static(this.args.table, this.args.js, this.args.method, this.args.isOther);
                 },
 
                 UnaryExpression_not(_p, e) {
-                    var js = this.args.js;
+                    let js = this.args.js;
                     js.pushWithSpace("!");
                     e.static(this.args.table, this.args.js, this.args.method, this.args.isOther);
                 },
@@ -4742,44 +4890,42 @@ uniform sampler2D u_that_y;
                 },
 
                 PrimExpression_string(e) {
-                    var js = this.args.js;
+                    let js = this.args.js;
                     js.push(e.sourceString);
                 },
 
                 PrimExpression_number(e) {
-                    var js = this.args.js;
+                    let js = this.args.js;
                     js.push(e.sourceString);
                 },
 
                 PrimExpression_field(n, _p, f) {
-                    var js = this.args.js;
+                    let js = this.args.js;
                     n.static(this.args.table, js, this.args.method, this.args.isOther);
                     js.push(".");
                     js.push(f.sourceString);
                 },
 
                 PrimExpression_variable(n) {
-                    var table = this.args.table;
-                    var js = this.args.js;
-                    var method = this.args.method;
-                    var isOther = this.args.isOther;
+                    let js = this.args.js;
                     js.push('env["' + n.sourceString + '"]');
                 },
 
                 PrimitiveCall(n, _o, as, _c) {
-                    var table = this.args.table;
-                    var js = this.args.js;
-                    var prim = n.sourceString;
-                    var math = ["random", // 0 arg
+                    let table = this.args.table;
+                    let js = this.args.js;
+                    let prim = n.sourceString;
+                    let math = ["random", // 0 arg
                                 "abs", "acos", "acosh", "asin", "asinh", "atan", "atanh",
                                 "cbrt", "ceil", "cos", "cosh", "exp", "expm1", "floor",
                                 "log", "log1p", "log10", "log2", "round", "sign", "sin",
-                                "sinh", "sqrt", "tan", "tanh", "trunc", // 1 arg
+                                "sinh", "sqrt", "tan", "tanh", "trunc",
+                                "floatBitsToUint", // 1 arg
                                 "atan2", "max", "min", "pow" // 2 args
                                ];
                     if (math.indexOf(prim) >= 0) {
-                        var actuals = as.static_method_inner(table, null, null, false);
-                        var str = actuals.join(", ");
+                        let actuals = as.static_method_inner(table, null, null, false);
+                        let str = actuals.join(", ");
                         js.push("Math.");
                         js.push(prim);
                         js.push("(");
@@ -4789,56 +4935,58 @@ uniform sampler2D u_that_y;
                 },
 
                 MethodCall(r, _p, n, _o, as, _c) {
-                    var table = this.args.table;
-                    var js = this.args.js;
-                    var method = n.sourceString;
+                    let table = this.args.table;
+                    let js = this.args.js;
+                    let method = n.sourceString;
 
-                    var displayBuiltIns = ["clear", "playSound", "loadProgram"];
+                    let displayBuiltIns = ["clear", "playSound", "loadProgram", "setClearColor", "croquetPublish", "debugger"];
 
-                    var builtIns = ["draw", "render", "setCount", "fillRandom", "fillSpace", "fillRectangle", "fillCuboid", "fillRandomDir", "fillRandomDir3", "fillImage", "loadVideoFrame", "loadData", "readValues", "start", "stop", "step", "diffuse", "increasePatch", "increaseVoxel"];
-                    var myTable = table[n.sourceString];
+                    let builtIns = ["draw", "render", "setPointSize", "setCount", "fillRandom", "fillSpace", "fillRectangle", "fillCuboid", "fillRandomDir", "fillRandomDir3", "fillImage", "loadVideoFrame", "loadData", "readValues", "start", "stop", "step", "diffuse", "increasePatch", "increaseVoxel"];
+                    let myTable = table[n.sourceString];
 
-                    var actuals = as.static_method_inner(table, null, method, false);
+                    let actuals = as.static_method_inner(table, null, method, false);
                     if ((r.sourceString === "Display" && displayBuiltIns.indexOf(method) >= 0) || builtIns.indexOf(method) >= 0) {
                         if (actuals.length !== primitives[method].param.size()) {
-                            var error = new Error("semantic error");
+                            let error = new Error("semantic error");
                             error.reason = `argument count does not match for primitive ${method}`;
                             error.expected = `argument count does not match for primitive ${method}`;
                             error.pos = as.source.endIdx;
                             error.src = null;
                             throw error;
                         }
-                        var str = actuals.join(", ");
+                        let str = actuals.join(", ");
                         js.push(`env["${r.sourceString}"].${method}(${str})`);
                         return;
                     }
 
-                    var formals;
+                    let formals;
                     if (myTable) {
                         formals = myTable.param;
                     }
 
                     if (formals && (actuals.length !== formals.size())) {
-                        var error = new Error("semantic error");
+                        let error = new Error("semantic error");
                         error.reason = `argument count does not match for method ${n.sourceString}`;
                         error.expected = `argument count does not match for method ${n.sourceString}`;
                         error.pos = as.source.endIdx;
                         error.src = null;
                         throw error;
                     }
-                    var params = new CodeStream();
-                    var objectsString = new CodeStream();
+                    let params = new CodeStream();
+                    let objectsString = new CodeStream();
 
                     params.addTab();
                     objectsString.addTab();
-                    for (var i = 0; i < actuals.length; i++) {
-                        var actual = actuals[i];
+                    for (let i = 0; i < actuals.length; i++) {
+                        let actual = actuals[i];
+                        let isOther;
+                        let shortName;
                         if (formals) {
-                            var formal = formals.at(i);
-                            var shortName = formal[2];
-                            var isOther = myTable.usedAsOther(shortName);
+                            let formal = formals.at(i);
+                            shortName = formal[2];
+                            isOther = myTable.usedAsOther(shortName);
                         } else {
-                            var shortName = "t" + i;
+                            shortName = "t" + i;
                             isOther = false;
                         }
 
@@ -4850,25 +4998,25 @@ uniform sampler2D u_that_y;
                         }
                     }
 
-                    var callProgram = `
-(function() {
-    var data = scripts["${n.sourceString}"];
+                    let callProgram = `
+(() => {
+    let data = scripts["${n.sourceString}"];
     if (!data) {
-        var error = new Error("semantic error");
+        let error = new Error("semantic error");
         error.reason = "Method named ${n.sourceString} does not exist";
         error.expected = "Method named ${n.sourceString} does not exist";
         error.pos = ${_c.source.endIdx};
         error.src = null;
         throw error;
     }
-    var func = data[0];
-    var ins = data[1][0]; // [[name, <fieldName>]]
-    var formals = data[1][1];
-    var outs = data[1][2]; //[[object, <fieldName>]]
-    var objects = {};
+    let func = data[0];
+    let ins = data[1][0]; // [[name, <fieldName>]]
+    let formals = data[1][1];
+    let outs = data[1][2]; //[[object, <fieldName>]]
+    let objects = {};
     objects.this = env["${r.sourceString}"];
     ${objectsString.contents()}
-    var params = {};
+    let params = {};
     ${params.contents()}
     func(objects, outs, ins, params);
 })()`;
@@ -4878,24 +5026,24 @@ uniform sampler2D u_that_y;
     }
 
     function shouldFire(trigger, env) {
-        if (typeof trigger == "string") {
-            var evt = env[trigger];
+        if (typeof trigger === "string") {
+            let evt = env[trigger];
             return evt && evt.ready;
-        } else {
-            var key = trigger[0];
-            if (key == "and") {
-                return shouldFire(trigger[1], env) && shouldFire(trigger[2], env);
-            } else if (key == "and") {
-                return shouldFire(trigger[1], env) || shouldFire(trigger[2], env);
-            } else {
-                return false;
-            }
         }
+
+        let key = trigger[0];
+        if (key === "and") {
+            return shouldFire(trigger[1], env) && shouldFire(trigger[2], env);
+        }
+        if (key === "and") {
+            return shouldFire(trigger[1], env) || shouldFire(trigger[2], env);
+        }
+        return false;
     }
 
     function resetTrigger(trigger, env) {
-        if (typeof trigger == "string") {
-            var evt = env[trigger];
+        if (typeof trigger === "string") {
+            let evt = env[trigger];
             if (evt) {
                 evt.ready = false;
             }
@@ -4948,16 +5096,16 @@ uniform sampler2D u_that_y;
         }
 
         maybeFire(shadama) {
-            var env = shadama.env;
+            let env = shadama.env;
             if (shouldFire(this.trigger, env)) {
                 resetTrigger(this.trigger, env);
-                var type = this.triggerAction[0];
-                var name = this.triggerAction[1];
-                if (type == "start") {
+                let type = this.triggerAction[0];
+                let name = this.triggerAction[1];
+                if (type === "start") {
                     shadama.startScript(name);
-                } else if (type == "stop") {
+                } else if (type === "stop") {
                     shadama.stopScript(this.triggerAction[1]);
-                } else if (type == "step") {
+                } else if (type === "step") {
                     shadama.once(name);
                 }
             }
@@ -4971,53 +5119,50 @@ uniform sampler2D u_that_y;
         }
 
         add(k, entry) {
-            var maybeEntry = this.entries[k];
+            let maybeEntry = this.entries[k];
             if (maybeEntry) {
-                if (maybeEntry[0] === entry[0] &&
-                    maybeEntry[1] === entry[1] &&
-                    maybeEntry[2] === entry[2]) {
-                    return;
-                } else {
-                    throw "error duplicate variable" + k
+                if (maybeEntry[0] === entry[0]
+                    && maybeEntry[1] === entry[1]
+                     && maybeEntry[2] === entry[2]) {
                     return;
                 }
+                throw new Error("error duplicate variable: " + k);
             }
             this.entries[k] = entry;
             this.keys.push(k);
         }
 
         addAll(other) {
-            other.keysAndValuesDo((key, entry) =>
-                                  this.add(key, entry));
+            other.keysAndValuesDo((key, entry) => this.add(key, entry));
         }
 
         at(key) {
             if (typeof key === "number") {
                 return this.entries[this.keys[key]];
-            } else {
-                return this.entries[key];
             }
+
+            return this.entries[key];
         }
 
         keysAndValuesDo(func) {
-            for (var i = 0; i < this.keys.length; i++) {
+            for (let i = 0; i < this.keys.length; i++) {
                 func(this.keys[i], this.entries[this.keys[i]]);
             }
         }
 
         keysAndValuesCollect(func) {
-            var result = [];
+            let result = [];
             this.keysAndValuesDo((key, value) => {
-                var element = func(key, value);
+                let element = func(key, value);
                 result.push(element);
             });
             return result;
         }
 
         has(name) {
-            var found = null;
+            let found = null;
             this.keysAndValuesDo((key, value) => {
-                if (value[2] == name) {
+                if (value[2] === name) {
                     found = value;
                 }
             });
@@ -5056,8 +5201,8 @@ uniform sampler2D u_that_y;
             this.scalarParamTable = new OrderedPair();
 
             if (entries) {
-                for (var i = 0; i < entries.length; i++) {
-                    this.add.apply(this, (entries[i]))
+                for (let i = 0; i < entries.length; i++) {
+                    this.add.apply(this, (entries[i]));
                 }
             }
 
@@ -5088,7 +5233,7 @@ uniform sampler2D u_that_y;
         }
 
         isStaticVariable() {
-            return this.type == "staticVar";
+            return this.type === "staticVar";
         }
 
         beTrigger(trigger, action) {
@@ -5108,13 +5253,13 @@ uniform sampler2D u_that_y;
         process() {
             // maybe a hack: look for outs that are not ins and add them to ins.  Those are use
             this.thisOut.keysAndValuesDo((key, entry) => {
-                var newEntry = ["propIn", "this", entry[2]];
-                var newK = newEntry.join(".");
+                let newEntry = ["propIn", "this", entry[2]];
+                let newK = newEntry.join(".");
                 this.thisIn.add(newK, newEntry);
             });
             this.otherOut.keysAndValuesDo((key, entry) => {
-                var newEntry = ["propIn", entry[1], entry[2]];
-                var newK = newEntry.join(".");
+                let newEntry = ["propIn", entry[1], entry[2]];
+                let newK = newEntry.join(".");
                 this.otherIn.add(newK, newEntry);
             });
 
@@ -5129,7 +5274,7 @@ uniform sampler2D u_that_y;
             }
 
             if (this.thisOut.size() > 0 && this.otherOut.size() > 0) {
-                var error = new Error("semantic error");
+                let error = new Error("semantic error");
                 error.reason = "shadama cannot write into this and others from the same script.";
                 error.expected = "Make sure " + this.methodName + " only writes into either properties of 'this', or properties of method arguments";
                 error.pos = this.methodPos;
@@ -5149,11 +5294,11 @@ uniform sampler2D u_that_y;
                     this.scalarParamTable.add(key, entry);
                 }
             });
-        };
+        }
 
         add(tag, rcvr, name) {
-            var entry = [tag, rcvr, name];
-            var k = [tag, rcvr ? rcvr : "null", name].join(".");
+            let entry = [tag, rcvr, name];
+            let k = [tag, rcvr || "null", name].join(".");
 
             if (tag === "propOut" && rcvr === "this") {
                 this.thisOut.add(k, entry);
@@ -5169,10 +5314,10 @@ uniform sampler2D u_that_y;
                 this.local.add(k, entry);
             }
 
-            if ((this.otherOut.size() > 0 || this.otherIn.size() > 0) &&
-                this.defaultUniforms.indexOf("u_that_x") < 0) {
+            if ((this.otherOut.size() > 0 || this.otherIn.size() > 0)
+                && this.defaultUniforms.indexOf("u_that_x") < 0) {
                 this.defaultUniforms = this.defaultUniforms.concat(["u_that_x", "u_that_y"]);
-                if (dimension == 3) {
+                if (dimension === 3) {
                     if (this.defaultUniforms.indexOf("u_that_z") < 0) {
                         this.defaultUniforms = this.defaultUniforms.concat(["u_that_z", "v_step", "v_resolution"]);
                     }
@@ -5181,7 +5326,7 @@ uniform sampler2D u_that_y;
         }
 
         usedAsOther(n) {
-            var result = false;
+            let result = false;
             this.otherIn.keysAndValuesDo((k, entry) => {
                 result = result || (entry[1] === n);
             });
@@ -5192,33 +5337,35 @@ uniform sampler2D u_that_y;
         }
 
         uniform(entry) {
-            var k = ["propIn", entry[1], entry[2]].join(".");
-            var entry = this.uniformTable.at(k);
-            if (!entry) {
-                debugger;
+            let k = ["propIn", entry[1], entry[2]].join(".");
+            let result = this.uniformTable.at(k);
+            if (!result) {
+                throw new Error("internal compilation error");
             }
-            return ["u", entry[1], entry[2]].join("_");
+            return ["u", result[1], result[2]].join("_");
         }
 
         varying(entry) {
-            var k = ["propOut", entry[1], entry[2]].join(".");
-            var entry = this.varyingTable.at(k);
-            return ["v", entry[1],  entry[2]].join("_");
+            let k = ["propOut", entry[1], entry[2]].join(".");
+            let result = this.varyingTable.at(k);
+            return ["v", result[1], result[2]].join("_");
         }
 
         out(entry) {
-            var k = ["propOut", entry[1], entry[2]].join(".");
-            var entry = this.varyingTable.at(k);
-            return ["o", entry[1],  entry[2]].join("_");
+            let k = ["propOut", entry[1], entry[2]].join(".");
+            let result = this.varyingTable.at(k);
+            return ["o", result[1], result[2]].join("_");
         }
 
         uniforms() {
-            return this.uniformTable.keysAndValuesCollect((key, entry) =>
-                                                          "uniform sampler2D " + this.uniform(entry) + ";");
+            return this.uniformTable.keysAndValuesCollect((key, entry) => {
+                let result = `uniform sampler2D ${this.uniform(entry)};`;
+                return result;
+            });
         }
 
         paramUniforms() {
-            var result = [];
+            let result = [];
             this.scalarParamTable.keysAndValuesDo((key, entry) => {
                 result.push("uniform float u_scalar_" + entry[2] + ";");
             });
@@ -5226,40 +5373,46 @@ uniform sampler2D u_that_y;
         }
 
         vertVaryings() {
-            return this.varyingTable.keysAndValuesCollect((key, entry) =>
-                                                          "out float " + this.varying(entry) + ";");
+            return this.varyingTable.keysAndValuesCollect((key, entry) => {
+                let result = `out float ${this.varying(entry)};`;
+                return result;
+            });
         }
 
         fragVaryings() {
-            return this.varyingTable.keysAndValuesCollect((key, entry) =>
-                                                          "in float " + this.varying(entry) + ";");
+            return this.varyingTable.keysAndValuesCollect((key, entry) => {
+                let result = `in float ${this.varying(entry)};`;
+                return result;
+            });
         }
 
         uniformDefaults() {
             return this.varyingTable.keysAndValuesCollect((key, entry) => {
-                var u_entry = ["propIn", entry[1], entry[2]];
-                var ind = entry[1] === "this" ? `ivec2(a_index)` : `ivec2(_pos)`;
+                let u_entry = ["propIn", entry[1], entry[2]];
+                let ind = entry[1] === "this" ? `ivec2(a_index)` : `ivec2(_pos)`;
                 return `${this.varying(entry)} = texelFetch(${this.uniform(u_entry)}, ${ind}, 0).r;`;
-            })
+            });
         }
 
         outs() {
-            var i = 0;
-            var result = [];
+            let i = 0;
+            let result = [];
             this.varyingTable.keysAndValuesDo((key, entry) => {
                 result.push("layout (location = " + i + ") out float " + this.out(entry) + ";");
                 i++;
-            })
+            });
             return result;
         }
 
         fragColors() {
-            return this.varyingTable.keysAndValuesCollect((key, entry) =>
-                                                          this.out(entry) + " = " + this.varying(entry) + ";");
+            return this.varyingTable.keysAndValuesCollect((key, entry) => {
+                let result = `${this.out(entry)} = ${this.varying(entry)};`;
+                return result;
+            });
         }
 
         isBuiltin(n) {
-            return this.defaultAttributes.indexOf(n) >= 0 || this.defaultUniforms.indexOf(n) >= 0 ;
+            return this.defaultAttributes.indexOf(n) >= 0 || this.defaultUniforms.indexOf(n) >= 0;
         }
 
         hasVariable(n) {
@@ -5272,9 +5425,9 @@ uniform sampler2D u_that_y;
         }
 
         insAndParamsAndOuts() {
-            var ins = this.uniformTable.keysAndValuesCollect((key, entry) => [entry[1], entry[2]]);
-            var shortParams = this.scalarParamTable.keysAndValuesCollect((key, entry) => entry[2]);
-            var outs;
+            let ins = this.uniformTable.keysAndValuesCollect((key, entry) => [entry[1], entry[2]]);
+            let shortParams = this.scalarParamTable.keysAndValuesCollect((key, entry) => entry[2]);
+            let outs;
             if (this.forBreed) {
                 outs = this.thisOut.keysAndValuesCollect((key, entry) => [entry[1], entry[2]]);
             } else {
@@ -5284,7 +5437,7 @@ uniform sampler2D u_that_y;
         }
 
         rawTable() {
-            var result = {};
+            let result = {};
             this.thisIn.keysAndValuesDo((key, entry) => result[key] = entry);
             this.thisOut.keysAndValuesDo((key, entry) => result[key] = entry);
             this.otherIn.keysAndValuesDo((key, entry) => result[key] = entry);
@@ -5299,9 +5452,48 @@ uniform sampler2D u_that_y;
         }
 
         primitivesAndHelpers() {
-            return this.allUsedHelpersAndPrimitives.keysAndValuesCollect((n, v) => {
+            return this.allUsedHelpersAndPrimitives.keysAndValuesCollect((n, _v) => {
                 if (n === "random") {
                     return `
+uint hash(uint x) {
+  x += (x << 10u);
+  x ^= (x >>  6u);
+  x += (x <<  3u);
+  x ^= (x >> 11u);
+  x += (x << 15u);
+  return x;
+}
+
+uint hashInt(uint x)
+{
+  x += x >> 11;
+  x ^= x << 7;
+  x += x >> 15;
+  x ^= x << 5;
+  x += x >> 12;
+  x ^= x << 9;
+  return x;
+}
+
+
+highp float rand(uint h) {
+  const uint mantissaMask = 0x007FFFFFu;
+  const uint one          = 0x3F800000u;
+
+  h &= mantissaMask;
+  h |= one;
+    
+  float  r2 = uintBitsToFloat(h);
+  return r2 - 1.0;
+}
+
+highp float random(float f) {
+  return rand(hashInt(floatBitsToUint(f)));
+}
+`;
+
+/*
+
 highp float random(float seed) {
    highp float a  = 12.9898;
    highp float b  = 78.233;
@@ -5310,12 +5502,12 @@ highp float random(float seed) {
    highp float sn = mod(dt, 3.14159);
    return fract(sin(sn) * c);
 }
-`
-                } else if (globalTable[n] && globalTable[n].type == "helper") {
-                    return globalTable[n].helperCode;
-                } else {
-                    return "";
+*/
                 }
+                if (globalTable[n] && globalTable[n].type === "helper") {
+                    return globalTable[n].helperCode;
+                }
+                return "";
             });
         }
     }
@@ -5342,7 +5534,7 @@ highp float random(float seed) {
         }
 
         tab() {
-            for (var i = 0; i < this.tabLevel; i++) {
+            for (let i = 0; i < this.tabLevel; i++) {
                 this.result.push("  ");
                 this.hadSpace = true;
             }
@@ -5360,9 +5552,9 @@ highp float random(float seed) {
 
         push(val) {
             this.result.push(val);
-            var last = val[val.length - 1];
-            this.hadSpace = (last === " " || last == "\n" || last == "{" || last == "(");
-            this.hadCR = last == "\n";
+            let last = val[val.length - 1];
+            this.hadSpace = (last === " " || last === "\n" || last === "{" || last === "(");
+            this.hadCR = last === "\n";
         }
 
         pushWithSpace(val) {
@@ -5373,16 +5565,16 @@ highp float random(float seed) {
         }
 
         contents() {
-            function flatten(ary) {
-                return ary.reduce(function (a, b) {
-                    return a.concat(Array.isArray(b) ? flatten(b) : b)}, []).join("");
+            let flatten = (ary) => {
+                let reduced = ary.reduce((a, b) => a.concat(Array.isArray(b) ? flatten(b) : b), []);
+                return reduced.join("");
             };
             return flatten(this.result);
         }
     }
 
     function parse(aString, optRule) {
-        var rule = optRule;
+        let rule = optRule;
         if (!rule) {
             rule = "TopLevel";
         }
@@ -5390,23 +5582,23 @@ highp float random(float seed) {
     }
 
     function addAsSet(to, from) {
-        for (var k in from) {
-            if (from.hasOwnProperty(k)) {
+        for (let k in from) {
+            if (Object.prototype.hasOwnProperty.call(from, k)) {
                 to[k] = from[k];
             }
         }
         return to;
     }
 
-    function translate(str, prod, errorCallback) {
+    function translate(str, prod, _errorCallback) {
         if (!prod) {
             prod = "TopLevel";
         }
-        var match = g.match(str, prod);
+        let match = g.match(str, prod);
         if (!match.succeeded()) {
             console.log(str);
             console.log("did not parse: " + str);
-            var error = new Error("parse error");
+            let error = new Error("parse error");
             error.reason = "parse error";
             error.expected = "Expected: " + match.getExpectedText();
             error.pos = match.getRightmostFailurePosition();
@@ -5414,13 +5606,13 @@ highp float random(float seed) {
             throw error;
         }
 
-        var n = s(match);
-        var symTable = n.symTable(null);
+        let n = s(match);
+        let symTable = n.symTable(null);
         return n.glsl(symTable, null, null);
     }
 
-    var shadama;
-    var defaultProgName = optDefaultProgName || "5-Bounce.shadama";
+    let shadama;
+    let defaultProgName = optDefaultProgName || "5-Bounce.shadama";
 
     withThreeJS = !!threeRenderer;
     domTools = !!optDOMTools;
@@ -5435,26 +5627,35 @@ highp float random(float seed) {
     runTests = /test.?=/.test(window.location.search);
     showAllEnv = !(/allEnv=/.test(window.location.search));
     degaussdemo = /degaussdemo/.test(window.location.search);
+    climatedemo = /climatedemo/.test(window.location.search);
+    useCroquet = /useCroquet/.test(window.location.search);
+
+    let bigTitle = document.getElementById("bigTitle");
 
     if (domTools) {
         if (degaussdemo) {
             FIELD_WIDTH = 1024;
-            FIELD_HEIGHT = 768
+            FIELD_HEIGHT = 768;
             defaultProgName = "14-DeGauss.shadama";
         }
-        var match;
+        if (climatedemo) {
+            FIELD_WIDTH = 1024;
+            FIELD_HEIGHT = 768;
+            defaultProgName = "25-2DSystem.shadama";
+        }
+        let match;
         match = /fw=([0-9]+)/.exec(window.location.search);
-        FW = (match && match.length == 2) ? parseInt(match[1]) : FIELD_WIDTH;
+        FW = (match && match.length === 2) ? parseInt(match[1], 10) : FIELD_WIDTH;
 
         match = /fh=([0-9]+)/.exec(window.location.search);
-        FH = (match && match.length == 2)  ? parseInt(match[1]) : FIELD_HEIGHT;
+        FH = (match && match.length === 2)  ? parseInt(match[1], 10) : FIELD_HEIGHT;
 
         match = /t=([0-9]+)/.exec(window.location.search);
-        T = (match && match.length == 2) ? parseInt(match[1]) : TEXTURE_SIZE;
+        T = (match && match.length === 2) ? parseInt(match[1], 10) : TEXTURE_SIZE;
 
         if (runTests) {
             setTestParams();
-            documentRoot.querySelector("#bigTitle").innerHTML = "Shadama Tests";
+            bigTitle.innerHTML = "Shadama Tests";
         }
 
         readout = documentRoot.querySelector("#readout");
@@ -5462,7 +5663,6 @@ highp float random(float seed) {
         envList = documentRoot.querySelector("#envList");
 
         if (!withThreeJS) {
-            
             shadamaCanvas = documentRoot.querySelector("#shadamaCanvas");
             if (!shadamaCanvas) {
                 shadamaCanvas = document.createElement("canvas");
@@ -5473,22 +5673,23 @@ highp float random(float seed) {
             shadamaCanvas.style.width = FW + "px";
             shadamaCanvas.style.height = FH + "px";
             gl = shadamaCanvas.getContext("webgl2");
-            var ext = gl.getExtension("EXT_color_buffer_float");
+            //let spector = new SPECTOR.Spector();
+            //spector.displayUI();
+            gl.getExtension("EXT_color_buffer_float");
             state = gl;
         } else {
             gl = renderer.context;
             if (!renderer.state) {
-                throw "a WebGLState has to be passed in";
+                throw new Error("a WebGLState has to be passed in");
             }
             state = renderer.state;
-            var ext = gl.getExtension("EXT_color_buffer_float");
+            gl.getExtension("EXT_color_buffer_float");
             shadamaCanvas = gl.canvas;
             shadamaCanvas.id = "shadamaCanvas";
             shadamaCanvas.width = FW;
             shadamaCanvas.height = FH;
             shadamaCanvas.style.width = FW + "px";
             shadamaCanvas.style.height = FH + "px";
-
         }
 
         shadama = new Shadama();
@@ -5497,86 +5698,114 @@ highp float random(float seed) {
             shadama.addListeners(shadamaCanvas);
         }
 
-        if (degaussdemo) {
-            documentRoot.querySelector("#bigTitle").innerHTML = "<button>Full Screen</button>";
-            documentRoot.querySelector("#bigTitle").firstChild.onclick = shadama.goFullScreen;
+        if (dimension === 3 && domTools) {
+            shadama.keys = {};
+            moveVector = new THREE.Vector3();
+            euler = new THREE.Euler(0, 0, 0, "YXZ");
+            shadama.add3DNavigation();
         }
 
-       if (!editor && optEditor) {
-           function words(str) { let o = {}; str.split(" ").forEach((s) => o[s] = true); return o; }
-            CodeMirror.defineMIME("text/shadama", {
-                name: "clike",
-                keywords: words("program breed patch def static var if else"),
-                atoms: words("true false this self width height image mousedown mousemove mouseup time"),
-            });
-         
-            editor = optEditor;
-            editor.setOption("mode", "text/shadama");
-            editor.setOption("matchBrackets", true);
-            editor.setOption("extraKeys", {
-                    "Cmd-S": function(cm) {shadama.updateCode()},
-                    "Alt-S": function(cm) {shadama.updateCode()},
-                    "Ctrl-S": function(cm) {shadama.updateCode()},
-                })
-    
-            shadama.setEditor(editor, "CodeMirror");
-       }
-      
-      
-        if (!editor) {
+        if (degaussdemo) {
+            bigTitle.innerHTML = "<button>Full Screen</button>";
+            bigTitle.firstChild.onclick = shadama.goFullScreen;
+        }
+
+        document.getElementById("fullScreenButton").onclick = () => shadama.goFullScreen();
+
+        if (climatedemo) {
+            bigTitle.innerHTML = "Full Screen";
+            bigTitle.onclick = () => shadama.setClimateFullScreen();
+            if (useCroquet) {
+                join().then(session => {
+                    croquetView = session.view;
+                    croquetView.setShadama(shadama);
+                });
+            }
+        }
+
+        if (!editor && optEditor) {
             function words(str) { let o = {}; str.split(" ").forEach((s) => o[s] = true); return o; }
             CodeMirror.defineMIME("text/shadama", {
                 name: "clike",
                 keywords: words("program breed patch def static var if else"),
                 atoms: words("true false this self width height image mousedown mousemove mouseup time"),
             });
-            var cm = CodeMirror.fromTextArea(documentRoot.querySelector("#code"), {
+
+            editor = optEditor;
+            editor.setOption("mode", "text/shadama");
+            editor.setOption("matchBrackets", true);
+            editor.setOption("extraKeys", {
+                "Cmd-S": function(cm) {shadama.updateCode()},
+                "Alt-S": function(cm) {shadama.updateCode()},
+                "Ctrl-S": function(cm) {shadama.updateCode()},
+            })
+
+            shadama.setEditor(editor, "CodeMirror");
+        }
+
+        if (!editor) {
+            let words = (str) => {
+                let o = {};
+                str.split(" ").forEach((part) => o[part] = true);
+                return o;
+            };
+            CodeMirror.defineMIME("text/shadama", {
+                name: "clike",
+                keywords: words("program breed patch def static var if else"),
+                atoms: words("true false this self width height image mousedown mousemove mouseup time"),
+            });
+
+            let cm = CodeMirror.fromTextArea(documentRoot.querySelector("#code"), {
                 mode: "text/shadama",
                 matchBrackets: true,
                 "extraKeys": {
-                    "Cmd-S": function(cm) {shadama.updateCode()},
-                    "Alt-S": function(cm) {shadama.updateCode()},
-                    "Ctrl-S": function(cm) {shadama.updateCode()},
+                    "Cmd-S": (_cm) => shadama.updateCode(),
+                    "Alt-S": (_cm) => shadama.updateCode(),
+                    "Ctrl-S": (_cm) => shadama.updateCode(),
                 },
+            });
+            cm.on("change", () => {
+                if (parseErrorWidget) {
+                    shadama.cleanUpEditorState();
+                }
             });
             shadama.setEditor(cm, "CodeMirror");
         }
+
         if (documentRoot.querySelector("#myDropdown")) {
-          shadama.initServerFiles();
-          shadama.initFileList();
+            shadama.initServerFiles();
+            shadama.initFileList();
         }
-        
-        if (!optEditor)  {
-          shadama.initEnv(function() {
-              var func = function (source) {
-                  shadama.loadShadama(null, source);
-                  if (editor) {
-                      editor.doc.setValue(source);
-                  }
-                  if (withThreeJS) {
-                      if (parent) {
-                          parent.onAfterRender = shadama.makeOnAfterRender();
-                      }
-                  }
-                  if (!withThreeJS) {
-                      shadama.maybeRunner();
-                  }
-              };
-              shadama.env["Display"].loadProgram(defaultProgName, func);
-          });
+        if (!optEditor) {
+            shadama.initEnv(() => {
+                let func = (source) => {
+                    shadama.loadShadama(null, source);
+                    if (editor) {
+                        editor.doc.setValue(source);
+                    }
+                    if (withThreeJS) {
+                        if (parent) {
+                            parent.onAfterRender = shadama.makeOnAfterRender();
+                        }
+                    }
+                    if (!withThreeJS) {
+                        shadama.maybeRunner();
+                    }
+                };
+                shadama.env["Display"].loadProgram(defaultProgName, func);
+            });
         }
     } else {
-        if (!renderer.context ||
-            renderer.context.constructor != WebGL2RenderingContext) {
-            throw "needs a WebGL2 context";
-            return;
+        if (!renderer.context
+            || renderer.context.constructor !== WebGL2RenderingContext) {
+            throw new Error("needs a WebGL2 context");
         }
         gl = renderer.context;
         if (!renderer.state) {
-            throw "a WebGLState has to be passed in";
+            throw new Error("a WebGLState has to be passed in");
         }
         state = renderer.state;
-        var ext = gl.getExtension("EXT_color_buffer_float");
+        gl.getExtension("EXT_color_buffer_float");
         shadama = new Shadama();
         shadama.initDisplay();
         shadama.initEnv(function() {
@@ -5610,7 +5839,7 @@ highp float random(float seed) {
         symTableUnitTests();
         translateTests();
     }
-//    window.shadama = shadama;
+    //    window.shadama = shadama;
     return shadama;
 }
 
@@ -5619,4 +5848,4 @@ window.ShadamaFactory = ShadamaFactory
 
 // export {
 //   ShadamaFactory
-// }
+//}
