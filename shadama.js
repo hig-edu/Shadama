@@ -1648,6 +1648,7 @@ export function ShadamaFactory(frame, optDimension, parent, optDefaultProgName, 
         let code = editor.getValue();
         this.loadShadama(null, code);
         this.maybeRunner();
+        if (optEditor) return; // opt editor will take care of this 
         if (!this.programName) {
             this.programName = prompt("Enter the program name:", "My Cool Effect!");
             if (!this.programName) {
